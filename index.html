@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#101018">
+  <title>Bad Good — zły bóg powraca</title>
+  <link rel="stylesheet" href="styles.css?v=20261046-1">
+</head>
+<body>
+  <main id="game-root">
+    <canvas id="game" aria-label="Świat gry Bad Good"></canvas>
+
+    <div id="hud" class="hud">
+      <header class="topbar">
+        <div class="brand">
+          <span class="brand-mark" aria-hidden="true">☩</span>
+          <div class="brand-text">
+            <h1>Bad Good</h1>
+            <p id="world-name">Dolina Zapomnianych</p>
+          </div>
+        </div>
+
+        <div class="stats" role="status" aria-live="off">
+          <div class="stat">
+            <span class="stat-label">Dzień</span>
+            <span class="stat-value"><span id="stat-day">1</span><small id="stat-clock">07:30</small></span>
+          </div>
+          <div class="stat">
+            <span class="stat-label">Ludność</span>
+            <span class="stat-value" id="stat-pop">0</span>
+          </div>
+          <div class="stat" title="Dzieci / dorośli / starsi">
+            <span class="stat-label">Wiek</span>
+            <span class="stat-value stat-small" id="stat-ages">0 / 0 / 0</span>
+          </div>
+          <div class="stat" id="stat-food-wrap" title="Zapasy ziarna w wiosce">
+            <span class="stat-label">Ziarno</span>
+            <span class="stat-value" id="stat-food">0</span>
+          </div>
+          <div class="stat stat-danger">
+            <span class="stat-label">Ofiary</span>
+            <span class="stat-value" id="stat-deaths">0</span>
+          </div>
+        </div>
+
+        <div class="topbar-right">
+          <button id="btn-audio" class="icon-btn" title="Dźwięk" aria-label="Przełącz dźwięk">♪</button>
+          <button id="btn-speed-mobile" class="icon-btn speed-cycle" title="Zmień prędkość czasu" aria-label="Zmień prędkość czasu">1×</button>
+          <button id="btn-pause" class="icon-btn" title="Pauza" aria-label="Pauza">❚❚</button>
+          <div class="speed-control" id="speed-control" aria-label="Prędkość czasu"></div>
+        </div>
+      </header>
+
+      <div id="toasts" class="toasts" aria-live="polite"></div>
+
+      <aside class="power-dock" id="power-dock">
+        <div class="dock-head">
+          <span class="dock-title">Boskie moce</span>
+          <div
+            class="energy-wrap"
+            title="Lush — boska moc. Przerażeni ludzie sączą go powoli, a śmierć oddaje całe żniwo naraz."
+          >
+            <span class="energy-label">Lush</span>
+            <div class="energy-track"><div id="energy-fill" class="energy-fill"></div></div>
+            <span id="lush-rate" class="lush-rate" hidden></span>
+            <span id="energy-text">60/100</span>
+          </div>
+          <button
+            id="btn-dock-toggle"
+            class="dock-toggle"
+            type="button"
+            aria-expanded="true"
+            aria-controls="power-list"
+            title="Zwiń panel mocy"
+          >
+            <span class="dock-toggle-text">Zwiń</span>
+            <span class="dock-toggle-chevron" aria-hidden="true">▾</span>
+          </button>
+        </div>
+        <div id="power-list" class="power-list"></div>
+        <p id="dock-status" class="dock-status" aria-live="polite">
+          <span id="dock-status-text">
+            <span class="status-mouse">Wybierz kartę mocy, potem kliknij planszę. Przeciągnij, aby przesunąć mapę.</span>
+            <span class="status-touch">Dotknij karty mocy, potem planszy. Przeciągnij planszę, aby ją przesunąć.</span>
+          </span>
+          <button id="btn-disarm" class="dock-cancel" type="button" hidden>Anuluj</button>
+        </p>
+        <p class="dock-hint hint-desktop">Kliknij kartę mocy, potem planszę · przeciągnij mapę · kółko — zoom</p>
+        <p class="dock-hint hint-touch">Jednym palcem przesuwaj mapę · szczypnij, aby przybliżyć lub oddalić</p>
+      </aside>
+
+      <div class="legend" aria-hidden="true">
+        <span><i class="dot lightning"></i> piorun</span>
+        <span><i class="dot water"></i> woda</span>
+      </div>
+
+      <div id="tooltip" class="tooltip hidden" role="tooltip"></div>
+    </div>
+
+    <div id="intro" class="overlay intro-overlay">
+      <div class="intro-vignette"></div>
+      <div class="intro-content">
+        <p class="eyebrow">Gra o władzy, deszczu i gniewie</p>
+        <h1 class="game-title">BAD<span>GOOD</span></h1>
+        <p class="tagline">Ludzie zapomnieli o tobie. Przypomnij im, kim jesteś.</p>
+        <p class="intro-copy">
+          Jesteś złym, mściwym bogiem. Nad doliną żyją kobiety i mężczyźni w różnym wieku —
+          rodzą się, dorastają, zakładają rodziny i umierają. Przerażeni ludzie sączą
+          <strong>Lush</strong> — twoją boską moc. Śmierć oddaje całe żniwo naraz, ale martwi
+          się nie rozmnażają. Hoduj ich, a urośniesz w siłę. Ześlij piorun, który podpala las,
+          albo deszcz, który topi ludzi i budzi nowe drzewa.
+        </p>
+        <div class="intro-controls hint-desktop">
+          <div><span>Kliknij kartę mocy, potem planszę, aby rzucić.</span></div>
+          <div><span>Przeciągnij planszę, aby przesunąć mapę.</span></div>
+          <div><span>Kółkiem myszy zmienisz przybliżenie.</span></div>
+          <div><span>Najedź na człowieka, aby poznać jego historię.</span></div>
+        </div>
+        <div class="intro-controls hint-touch">
+          <div><span>Dotknij karty mocy, potem planszy, aby rzucić.</span></div>
+          <div><span>Przeciągnij jednym palcem, aby przesunąć mapę.</span></div>
+          <div><span>Szczypnij dwoma palcami, aby zmienić przybliżenie.</span></div>
+        </div>
+        <button id="btn-start" class="primary-btn" aria-busy="true">Wczytywanie…</button>
+        <p id="start-status" class="intro-status" role="status" aria-live="polite">Wczytywanie świata…</p>
+        <p class="intro-foot">Wskazówka: panika daje Lush powoli, śmierć — jednorazowo dużo. Deszcz panikuje tłum i zbiera się w zagłębieniach.</p>
+      </div>
+    </div>
+
+    <div id="pause" class="overlay pause-overlay hidden">
+      <div class="pause-card">
+        <p class="eyebrow">Czas stanął</p>
+        <h2>Pauza</h2>
+        <p>Świat czeka na twoją wolę.</p>
+        <button id="btn-resume" class="primary-btn">Wróć do doliny</button>
+      </div>
+    </div>
+
+    <div id="fatal" class="overlay fatal-overlay hidden">
+      <div class="pause-card">
+        <h2>Nie można wczytać świata</h2>
+        <p id="fatal-message">Uruchom grę przez lokalny serwer HTTP, np. <code>python3 -m http.server</code>.</p>
+      </div>
+    </div>
+
+    <div id="runtime-error" class="runtime-error hidden" role="alert" aria-live="assertive">
+      <div class="runtime-error-text">
+        <strong>Gra napotkała błąd, ale działa dalej.</strong>
+        <span id="runtime-error-message">Nieznany błąd.</span>
+      </div>
+      <div class="runtime-error-actions">
+        <button id="btn-runtime-reload" type="button" class="runtime-error-btn is-primary">Odśwież grę</button>
+        <button id="btn-runtime-dismiss" type="button" class="runtime-error-btn">Ukryj</button>
+      </div>
+    </div>
+
+    <div id="game-over" class="overlay gameover-overlay hidden">
+      <div class="pause-card gameover-card">
+        <p class="eyebrow">Dolina umilkła</p>
+        <h2>Koniec gry</h2>
+        <p>Nie został nikt, kto czciłby boga. Twoja władza rozpływa się w ciszy.</p>
+        <dl class="gameover-stats">
+          <div><dt>Dni w dolinie</dt><dd id="gameover-days">1</dd></div>
+          <div><dt>Zmarli</dt><dd id="gameover-deaths">0</dd></div>
+          <div><dt>Lush</dt><dd id="gameover-lush">0</dd></div>
+        </dl>
+        <button id="btn-restart" class="primary-btn">Zacznij od nowa</button>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    // Awaryjna obsługa startu. Ten skrypt działa nawet wtedy, gdy moduły gry
+    // nie zdążą się wczytać albo przeglądarka zablokuje je przy pliku z dysku.
+    (function () {
+      var startButton = document.getElementById("btn-start");
+      var status = document.getElementById("start-status");
+      var watchdog = null;
+      var readyPoll = null;
+      var ready = false;
+
+      function setStatus(text, isError) {
+        if (!status) return;
+        status.textContent = text || "";
+        status.classList.toggle("is-error", !!isError);
+      }
+
+      function showFatal(message) {
+        var intro = document.getElementById("intro");
+        var fatal = document.getElementById("fatal");
+        var fatalMessage = document.getElementById("fatal-message");
+        if (intro) intro.classList.add("hidden");
+        if (fatal) fatal.classList.remove("hidden");
+        if (fatalMessage && message) fatalMessage.innerHTML = message;
+      }
+
+      window.__badgoodReady = function () {
+        ready = true;
+        if (watchdog) {
+          clearTimeout(watchdog);
+          watchdog = null;
+        }
+        if (readyPoll) {
+          clearInterval(readyPoll);
+          readyPoll = null;
+        }
+        setStatus("");
+        if (startButton) {
+          startButton.textContent = "Zstąp do doliny";
+          startButton.removeAttribute("aria-busy");
+        }
+      };
+
+      window.__badgoodError = function (message) {
+        ready = false;
+        if (watchdog) {
+          clearTimeout(watchdog);
+          watchdog = null;
+        }
+        showFatal(message);
+      };
+
+      // Otwarcie index.html bezpośrednio z dysku nie pozwala wczytać plików
+      // JSON ani modułów ES. Lepiej powiedzieć to od razu niż udawać start.
+      if (location.protocol === "file:") {
+        showFatal(
+          "Ta gra wczytuje dane z plików JSON, więc nie działa po dwukliku na index.html. " +
+            "Uruchom w katalogu gry lokalny serwer HTTP: <code>python3 -m http.server 8000</code>, " +
+            "a potem otwórz <code>http://localhost:8000</code>."
+        );
+        return;
+      }
+
+      // Błąd wczytywania samego skryptu modułowego.
+      window.addEventListener(
+        "error",
+        function (event) {
+          var target = event.target;
+          if (target && target.tagName === "SCRIPT" && !window.badgood) {
+            window.__badgoodError(
+              "Nie udało się wczytać skryptów gry. Odśwież stronę i upewnij się, " +
+                "że otwierasz ją przez lokalny serwer HTTP."
+            );
+          }
+        },
+        true
+      );
+
+      if (!startButton) return;
+
+      // Starsza, zcache'owana wersja main.js mogła nie wywołać
+      // __badgoodReady. Samo pojawienie się gry wystarczy, by odblokować start.
+      readyPoll = setInterval(function () {
+        if (window.badgood) window.__badgoodReady();
+      }, 250);
+
+      // Klik przed gotowością gry nie może zniknąć bez śladu.
+      startButton.addEventListener(
+        "click",
+        function (event) {
+          if (window.badgood) return;
+          event.preventDefault();
+          event.stopImmediatePropagation();
+          if (!ready) {
+            setStatus("Gra jeszcze się wczytuje. Poczekaj chwilę…", true);
+            startButton.textContent = "Wczytywanie…";
+          }
+        },
+        true
+      );
+
+      watchdog = setTimeout(function () {
+        if (ready || window.badgood) return;
+        setStatus(
+          "Wczytywanie trwa zbyt długo. Sprawdź, czy serwer HTTP działa, i odśwież stronę.",
+          true
+        );
+      }, 15000);
+    })();
+  </script>
+
+  <script type="module" src="src/main.js?v=20261046-1"></script>
+</body>
+</html>

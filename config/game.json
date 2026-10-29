@@ -1,0 +1,538 @@
+{
+ "meta": {
+  "title": "Bad Good",
+  "subtitle": "Zły bóg powraca",
+  "version": "0.1.0"
+ },
+ "world": {
+  "tileSize": 18,
+  "gravity": 1500,
+  "maxAgents": 80,
+  "startPopulation": 24,
+  "extraGroundRows": 40,
+  "camera": {
+   "startX": 136,
+   "startY": 44,
+   "zoom": 1.05,
+   "minZoom": 0.55,
+   "maxZoom": 1.8,
+   "panSpeed": 720,
+   "edgePan": 24
+  }
+ },
+ "time": {
+  "secondsPerDay": 36,
+  "yearsPerDay": 1,
+  "startDay": 1,
+  "startHour": 7.5,
+  "speedOptions": [
+   0,
+   1,
+   2,
+   4
+  ],
+  "defaultSpeed": 1
+ },
+ "agents": {
+  "width": 9,
+  "height": 30,
+  "walkSpeed": 25,
+  "runSpeed": 62,
+  "jumpVelocity": 410,
+  "stepUp": 1.05,
+  "childAge": 14,
+  "elderAge": 58,
+  "fertileAge": 16,
+  "swimwearAdultAge": 18,
+  "fertilityEnd": 47,
+  "lifespanMin": 63,
+  "lifespanMax": 88,
+  "conceptionChancePerSecond": 0.055,
+  "gestationDays": 1.4,
+  "birthCooldownDays": 7,
+  "partnerCooldownDays": 1.5,
+  "maxBirthsPerDay": 2,
+  "wanderRadius": 15,
+  "maxWalkDropTiles": 3,
+  "idleMin": 0.8,
+  "idleMax": 3.0,
+  "dayStartHour": 6,
+  "nightStartHour": 21,
+  "dayWanderChance": 0.9,
+  "nightWanderChance": 0.1,
+  "nightIdleMin": 1.5,
+  "nightIdleMax": 4,
+  "nightWanderRadiusFactor": 0.45,
+  "nightSpeedFactor": 0.5,
+  "nightSleepChance": 0.9,
+  "drownSeconds": 2.4,
+  "waterSlowdown": 0.45,
+  "fleeChance": 0.72
+ },
+ "water": {
+  "maxLevel": 1.0,
+  "tickRate": 24,
+  "flowIterations": 2,
+  "flowSpeed": 0.65,
+  "evaporationPerSecond": 0.014,
+  "refillFixedPerSecond": 0.05,
+  "rainVolumePerSecond": 0.34,
+  "rainVolumePerStrength": [
+   0.1,
+   0.3,
+   0.9
+  ],
+  "rainDamagePerStrength": [
+   0,
+   0,
+   1.5
+  ]
+ },
+ "vegetation": {
+  "maxTrees": 420,
+  "forestDensity": 0.72,
+  "grassDensity": 0.028,
+  "lightningIgniteRadius": 3.2,
+  "burnSecondsMin": 2.8,
+  "burnSecondsMax": 5.4,
+  "fireSpreadRadius": 1.7,
+  "fireSpreadChance": 0.24,
+  "rainSproutInterval": 0.35,
+  "rainSproutChancePerSecond": 1.1,
+  "rainGrowthMultiplier": 2.5,
+  "rainFlourishSeconds": 8,
+  "rainFlourishDecaySeconds": 30,
+  "saplingGrowthSeconds": 16
+ },
+ "housing": {
+  "enabled": true,
+  "maxHouses": 20,
+  "maxConcurrentBuilds": 4,
+  "maxResidents": 6,
+  "width": 46,
+  "wallHeight": 27,
+  "roofHeight": 16,
+  "minTreeHeight": 44,
+  "chopSeconds": 2.4,
+  "woodPerTree": 1,
+  "woodRequired": 2,
+  "buildSeconds": 4.5,
+  "houseBurnSecondsMin": 4.5,
+  "houseBurnSecondsMax": 7.5,
+  "houseFireSpreadChance": 0.08,
+  "houseFireSpreadRadiusTiles": 5.5,
+  "treeIgniteChance": 0.08,
+  "rainWashSeconds": 9,
+  "rainWashMinIntensity": 0.5,
+  "rainWashDecay": 1.2,
+  "floodWashDepthTiles": 1.1,
+  "floodWashRate": 1.6,
+  "treeSearchTiles": 32,
+  "siteSearchTiles": 26,
+  "minSiteSpacingTiles": 5,
+  "familyRadiusTiles": 16,
+  "homeWanderRadiusTiles": 12,
+  "sleepHomeRadiusTiles": 40,
+  "buildChancePerIdle": 0.4,
+  "buildCooldownSeconds": 10,
+  "moveInChance": 0.12
+ },
+ "ladders": {
+  "enabled": true,
+  "woodPerTree": 2,
+  "tilesPerLog": 4,
+  "chopSeconds": 2.2,
+  "buildSeconds": 3.2,
+  "minTreeHeight": 28,
+  "maxHeightTiles": 24,
+  "maxSites": 3,
+  "maxLadders": 80,
+  "treeSearchTiles": 48,
+  "retrySeconds": 3,
+  "minAge": 12
+ },
+ "crops": {
+  "enabled": true,
+  "peoplePerPlot": 4,
+  "minPlots": 1,
+  "maxPlots": 16,
+  "plotWidthTiles": 3.6,
+  "growSeconds": 16,
+  "sowSeconds": 1.5,
+  "harvestSeconds": 2.2,
+  "yieldPerHarvest": 24,
+  "minAge": 12,
+  "workersPerPerson": 4,
+  "maxWorkers": 8,
+  "workChance": 0.8,
+  "siteSearchTiles": 30,
+  "minSpacingTiles": 3.2,
+  "plotCreateSeconds": 4,
+  "foodStart": 60,
+  "foodMax": 260,
+  "hungerPerSecond": 0.014,
+  "urgentFood": 60,
+  "eatThreshold": 0.85,
+  "mealValue": 0.85,
+  "starveSeconds": 22,
+  "rotDepthTiles": 0.4,
+  "rotRateBase": 0.35,
+  "rotRatePerTile": 0.6,
+  "rainIrrigationPerSecond": 0.45,
+  "rainGrowthBoost": 0.45,
+  "rainMoistureDecay": 0.02,
+  "rainWetDecay": 0.09,
+  "rainDamageChancePerSecond": 0.04,
+  "burnSecondsMin": 2.5,
+  "burnSecondsMax": 4.5,
+  "igniteChance": 0.85
+ },
+ "wind": {
+  "pushPerStrength": 17,
+  "panicChancePerSecond": 0.12,
+  "stripChancePerSecond": 0.007,
+  "stripMinAge": 16,
+  "stripCooldownSeconds": 35,
+  "shameMin": 1.3,
+  "shameMax": 2.6,
+  "houseDamagePerSecond": 0.11,
+  "houseDamageDecay": 0.06,
+  "houseRoofTearAt": 0.55,
+  "cropBreakChancePerSecond": 0.05,
+  "treeFallChancePerSecond": 0.035,
+  "leafRate": 14
+ },
+ "memorials": {
+  "enabled": true,
+  "deathsToTrigger": 3,
+  "clusterRadiusTiles": 5,
+  "clusterWindowSeconds": 40,
+  "panicRadiusTiles": 16,
+  "gatherRadiusTiles": 28,
+  "maxMourners": 8,
+  "minMourners": 2,
+  "joinChance": 0.72,
+  "gatherSeconds": 6,
+  "giveUpSeconds": 32,
+  "buildSeconds": 1.8,
+  "lingerSeconds": 4,
+  "obeliskHeightMin": 24,
+  "obeliskHeightMax": 34,
+  "ignoreCauses": [
+   "starość"
+  ]
+ },
+ "monoliths": {
+  "enabled": true,
+  "windowSeconds": 12,
+  "lushThreshold": 20,
+  "regionRadiusTiles": 20,
+  "minSpacingTiles": 20,
+  "maxMonoliths": 8,
+  "gatherRadiusTiles": 34,
+  "summonRadiusTiles": 34,
+  "panicRadiusTiles": 16,
+  "minAge": 6,
+  "maxPrayers": 10,
+  "joinChance": 0.85,
+  "idleJoinChance": 0.28,
+  "idleGatherRadiusTiles": 24,
+  "prayMinSeconds": 9,
+  "prayMaxSeconds": 20,
+  "gatherSeconds": 2.2,
+  "buildSeconds": 2.4,
+  "lingerSeconds": 9,
+  "monolithHeightMin": 52,
+  "monolithHeightMax": 78,
+  "monolithWidth": 11,
+  "prayerSpacingTiles": 1.1,
+  "prayLushPerSecond": 1,
+  "prayLushBonus": 6
+ },
+ "powers": {
+  "energyMax": 100,
+  "lush": {
+   "start": 60,
+   "capacityPerLush": 0.2,
+   "capacityMax": 360,
+   "panicPerSecond": 0.32,
+   "panicChildFactor": 0.5,
+   "panicElderFactor": 0.85,
+   "deathBase": 8,
+   "deathPerYear": 0.85,
+   "deathChildFactor": 0.4,
+   "deathElderFactor": 1.15
+  },
+  "list": [
+   {
+    "id": "lightning",
+    "name": "Piorun",
+    "short": "Piorun",
+    "description": "Wzywaj grom z nieba. Zabija ludzi, podpala las i chaty. Siła zwiększa zasięg i żniwo.",
+    "cost": 22,
+    "cooldown": 1.2,
+    "radius": 1.3,
+    "key": "1",
+    "icon": "⚡",
+    "color": "#ffe08a",
+    "strengthLevels": 3,
+    "strengthDefault": 1,
+    "costPerStrength": 0.45,
+    "radiusPerStrength": 0.35
+   },
+   {
+    "id": "rain",
+    "name": "Deszcz",
+    "short": "Deszcz",
+    "description": "Lekki deszcz podlewa glebę i zostawia kałuże; ulewa topi, zmywa domy i niszczy plony.",
+    "cost": 32,
+    "cooldown": 5,
+    "radius": 9,
+    "duration": 18,
+    "key": "2",
+    "icon": "☂",
+    "color": "#7fd6dd",
+    "strengthLevels": 3,
+    "strengthDefault": 1,
+    "costPerStrength": 0.45,
+    "radiusPerStrength": 0.25,
+    "durationPerStrength": 0.2
+   },
+   {
+    "id": "wind",
+    "name": "Wiatr",
+    "short": "Wiatr",
+    "description": "Wiatr szarpie drzewa, łamie zboże i zwiewa domy. Lekki potrafi zerwać komuś ubranie.",
+    "cost": 18,
+    "cooldown": 3,
+    "radius": 9,
+    "duration": 7,
+    "key": "3",
+    "icon": "🌬",
+    "color": "#cfe6df",
+    "strengthLevels": 3,
+    "strengthDefault": 1,
+    "costPerStrength": 0.5,
+    "radiusPerStrength": 0.34,
+    "durationPerStrength": 0.28
+   },
+   {
+    "id": "earthquake",
+    "name": "Trzęsienie ziemi",
+    "short": "Trzęsienie",
+    "description": "Wstrząs odrywa ziemię: kliknięta gleba zapada się w lej, a powietrze zasypuje ziemią. Ludzie w zasięgu mogą zostać pogrzebani.",
+    "cost": 28,
+    "cooldown": 3.2,
+    "radius": 3.6,
+    "depth": 3,
+    "key": "4",
+    "icon": "⛰",
+    "color": "#c9a06a",
+    "strengthLevels": 3,
+    "strengthDefault": 1,
+    "costPerStrength": 0.45,
+    "radiusPerStrength": 0.3,
+    "depthPerStrength": 0.42
+   }
+  ]
+ },
+ "names": {
+  "male": [
+   "Bolesław",
+   "Mieszko",
+   "Gniewko",
+   "Wojtek",
+   "Radomir",
+   "Sławek",
+   "Kuba",
+   "Witek",
+   "Grzegorz",
+   "Bogdan",
+   "Marcel",
+   "Staszek",
+   "Tomek",
+   "Dobromir",
+   "Leszek",
+   "Jarek",
+   "Kazik",
+   "Piotr"
+  ],
+  "female": [
+   "Mira",
+   "Wanda",
+   "Zofia",
+   "Jagna",
+   "Milena",
+   "Hanka",
+   "Kasia",
+   "Grażyna",
+   "Bożena",
+   "Dorota",
+   "Ala",
+   "Ola",
+   "Marta",
+   "Jadwiga",
+   "Lidia",
+   "Róża",
+   "Agata",
+   "Ewa"
+  ]
+ },
+ "theme": {
+  "ui": {
+   "accent": "#e4573d",
+   "accentSoft": "#ffb26b",
+   "good": "#78d6a8",
+   "text": "#f4ead9",
+   "muted": "#b8a98f",
+   "panel": "rgba(19, 17, 24, 0.78)",
+   "border": "rgba(255, 228, 190, 0.18)"
+  },
+  "skinTones": [
+   "#f1c9a5",
+   "#e2b083",
+   "#c98d5e",
+   "#a8683f",
+   "#7c4a2b"
+  ],
+  "hairColors": [
+   "#2a1b12",
+   "#4a2c1a",
+   "#7a4a26",
+   "#b07a3e",
+   "#d9c18b",
+   "#8b3b2a"
+  ],
+  "clothes": [
+   "#c9b892",
+   "#a8493a",
+   "#5a6b45",
+   "#3f5368",
+   "#b08444",
+   "#7c4a35",
+   "#8a5f6b",
+   "#6f7460"
+  ],
+  "swimwear": [
+   "#e8ddc2",
+   "#dfd2b4",
+   "#d9c9a4",
+   "#e4d8bd",
+   "#d3c2a0",
+   "#ece2cc"
+  ],
+  "folk": {
+   "linen": "#e8dfc9",
+   "embroidery": "#a83a2c",
+   "embroideryDark": "#6f241c",
+   "sash": "#8a3a2e",
+   "bead": "#c9a45e"
+  },
+  "grass": [
+   "#6f8f45",
+   "#7d9c4e",
+   "#63813e"
+  ],
+  "grassDark": "#405c2f",
+  "soil": [
+   "#6b4a2f",
+   "#5f4129",
+   "#755233"
+  ],
+  "rock": [
+   "#5b5e68",
+   "#686b75",
+   "#50535d"
+  ],
+  "snow": "#dfe9ef",
+  "forest": [
+   "#2f5834",
+   "#284d2e",
+   "#38633a"
+  ],
+  "tree": {
+   "pine": [
+    "#2b5137",
+    "#356143",
+    "#22452f"
+   ],
+   "leaf": [
+    "#477239",
+    "#568044",
+    "#648f4b"
+   ],
+   "trunk": "#4b3523",
+   "birchTrunk": "#d9d5c5"
+  },
+  "house": {
+   "wall": [
+    "#7a5638",
+    "#6b4a30",
+    "#85613e"
+   ],
+   "roof": [
+    "#c39a57",
+    "#b08a4b",
+    "#d0aa63"
+   ],
+   "trim": "#e6d3a8",
+   "window": "#ffd98a"
+  },
+  "sky": {
+   "dayTop": "#76a8bd",
+   "dayBottom": "#d6dcc2",
+   "duskTop": "#3c3f63",
+   "duskBottom": "#d88a62",
+   "nightTop": "#0c1424",
+   "nightBottom": "#1e2b3f",
+   "sun": "#ffe6a6",
+   "moon": "#e9f0fa"
+  },
+  "water": {
+   "shallow": "rgba(91, 185, 197, 0.62)",
+   "deep": "rgba(33, 101, 140, 0.78)",
+   "surface": "rgba(198, 247, 242, 0.85)",
+   "accent": "#7fd6dd"
+  }
+ },
+ "terrain": {
+  "chunkSize": 512,
+  "legend": {
+   " ": {
+    "solid": false,
+    "label": "niebo"
+   },
+   "#": {
+    "solid": true,
+    "label": "ziemia",
+    "surface": "grass"
+   },
+   "f": {
+    "solid": true,
+    "label": "las",
+    "surface": "forest"
+   },
+   "m": {
+    "solid": true,
+    "label": "skała",
+    "surface": "rock"
+   },
+   "d": {
+    "solid": true,
+    "label": "nasyp",
+    "surface": "dirt"
+   },
+   "s": {
+    "solid": true,
+    "label": "szczyt",
+    "surface": "snow"
+   },
+   "~": {
+    "solid": false,
+    "water": true,
+    "fixedWater": true,
+    "label": "jezioro"
+   }
+  }
+ }
+}
