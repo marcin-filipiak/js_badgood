@@ -2189,19 +2189,19 @@ export class Renderer {
     }
     ctx.stroke();
 
-    // Kalenica: gruby zwój słomy spinający obie połacie.
+    // Kalenica: płaska rygiel wzdłuż dachu (proste polskie siodło).
     ctx.strokeStyle = strawShade;
-    ctx.lineWidth = Math.max(2.4, roofH * 0.18);
-    ctx.lineCap = "round";
+    ctx.lineWidth = Math.max(2.4, roofH * 0.16);
+    ctx.lineCap = "butt";
     ctx.beginPath();
-    ctx.moveTo(x - half * 0.12, peak + 2);
-    ctx.quadraticCurveTo(x, peak - 2.2, x + half * 0.12, peak + 2);
+    ctx.moveTo(x - half * 0.46, peak + 0.8);
+    ctx.lineTo(x + half * 0.46, peak + 0.8);
     ctx.stroke();
     ctx.strokeStyle = "rgba(255, 235, 180, 0.32)";
-    ctx.lineWidth = 0.8;
+    ctx.lineWidth = 0.6;
     ctx.beginPath();
-    ctx.moveTo(x - half * 0.1, peak + 0.4);
-    ctx.quadraticCurveTo(x, peak - 2.4, x + half * 0.1, peak + 0.4);
+    ctx.moveTo(x - half * 0.44, peak);
+    ctx.lineTo(x + half * 0.44, peak);
     ctx.stroke();
 
     // Zerwany dach: ciemna wyrwa i trzepoczące pasma słomy.
