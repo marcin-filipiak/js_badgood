@@ -2026,22 +2026,16 @@ export class Renderer {
     ctx.ellipse(x + 3, y + 1.2, half * 1.18, 4.6, 0, 0, TAU);
     ctx.fill();
 
-    // Kamienny fundament z mchem — chata stoi na podmurówce z otoczaków.
-    ctx.fillStyle = "#59534a";
-    ctx.fillRect(x - half - 2, y - 5, w + 4, 5);
-    for (let i = 0; i < 6; i++) {
-      const sx = x - half - 1 + (w + 2) * (i / 6);
-      const sw = (w + 2) / 6 - 1.1;
-      ctx.fillStyle = i % 2 ? "#635d53" : "#4f4a43";
-      ctx.fillRect(sx, y - 4.6 + (i % 2) * 0.8, Math.max(2, sw), 3.6);
-      ctx.fillStyle = "rgba(206, 198, 178, 0.2)";
-      ctx.fillRect(sx + 0.5, y - 4.4 + (i % 2) * 0.8, Math.max(1, sw - 1.4), 0.9);
+    // Drewniana podwalina — chata stoi na belkach zamiast na kamieniu.
+    ctx.fillStyle = mixColor("#3a2414", wallDark, 0.4);
+    ctx.fillRect(x - half - 2, y - 4.5, w + 4, 4.5);
+    ctx.fillStyle = roofDark;
+    ctx.fillRect(x - half - 1.6, y - 1.2, w + 3.2, 1.2);
+    for (let i = 0; i < 5; i++) {
+      const rx = x - half + 2 + (w - 4) * (i / 4);
+      ctx.fillStyle = i % 2 ? "#4d311c" : "#3a2414";
+      ctx.fillRect(rx, y - 4.6, Math.max(2, w * 0.04), 3);
     }
-    ctx.fillStyle = "rgba(96, 120, 72, 0.38)";
-    ctx.beginPath();
-    ctx.ellipse(x - half * 0.76, y - 1.6, w * 0.16, 2.1, 0, 0, TAU);
-    ctx.ellipse(x + half * 0.62, y - 1.2, w * 0.12, 1.8, 0, 0, TAU);
-    ctx.fill();
 
     // Ściana z bali — poziome belki z ciemnymi szwami i wypustem w węgłach.
     const wallGrad = ctx.createLinearGradient(x - half, 0, x + half, 0);
