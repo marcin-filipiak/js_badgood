@@ -3303,7 +3303,7 @@ export class Renderer {
       if (p.y < view.top - 60 || p.y > view.bottom + 40) continue;
       order.push(p);
     }
-    order.sort((a, b) => a.y - b.y);
+    order.sort((a, b) => a.y - b.y || a.id - b.id);
     for (const p of order) {
       this._drawPerson(ctx, p, game);
       if (p.hunger >= 0.9) this._drawHungerMark(ctx, p);
@@ -3542,7 +3542,7 @@ export class Renderer {
       ? Math.sin(this.time * 11 + person.id) * 1.6
       : moving
         ? Math.abs(Math.sin(phase)) * -1.1 * scale
-        : Math.sin(this.time * 1.6 + person.id * 1.7) * 0.35;
+        : 0;
     const feetY = person.y + bob;
     const cx = person.x;
     const facing = person.facing;
