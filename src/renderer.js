@@ -2210,27 +2210,6 @@ export class Renderer {
     ctx.quadraticCurveTo(x, peak - 2.4, x + half * 0.1, peak + 0.4);
     ctx.stroke();
 
-    // Słoneczny pazurek na kalenicy — słowiański znak domu.
-    ctx.strokeStyle = mixColor(trim, "#4a3020", 0.45);
-    ctx.lineWidth = 1.2;
-    ctx.beginPath();
-    ctx.moveTo(x, peak - 1);
-    ctx.lineTo(x, peak - 8.5);
-    ctx.stroke();
-    ctx.fillStyle = trim;
-    ctx.beginPath();
-    ctx.arc(x, peak - 11, 2.7, 0, TAU);
-    ctx.fill();
-    ctx.strokeStyle = trim;
-    ctx.lineWidth = 0.8;
-    for (let i = 0; i < 6; i++) {
-      const a = (i / 6) * TAU + 0.3;
-      ctx.beginPath();
-      ctx.moveTo(x + Math.cos(a) * 3.4, peak - 11 + Math.sin(a) * 3.4);
-      ctx.lineTo(x + Math.cos(a) * 5.4, peak - 11 + Math.sin(a) * 5.4);
-      ctx.stroke();
-    }
-
     // Zerwany dach: ciemna wyrwa i trzepoczące pasma słomy.
     if (house.roofTorn) {
       const flap = Math.sin(this.time * 9 + seed) * 1.6;
