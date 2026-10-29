@@ -2098,16 +2098,19 @@ export class Renderer {
     const strawLight = mixColor(roof, "#f4d58d", 0.34);
     const strawShade = mixColor(roof, "#5a3f1f", 0.4);
 
-    // Dach dwuspadowy: dwie proste połacie schodzące z kalenicy do okapu.
-    const strawGrad = ctx.createLinearGradient(0, peak, 0, eaveY + 4);
+    // Dach dwupłaszczyznowy, siodłowy: dwa spady, płaska kalenica z góry.
+    const ridgeY = peak + 1.2;
+    const ridgeHalf = half * 0.46;
+    const strawGrad = ctx.createLinearGradient(0, ridgeY, 0, eaveY + 4);
     strawGrad.addColorStop(0, strawLight);
     strawGrad.addColorStop(0.42, roof);
     strawGrad.addColorStop(1, strawShade);
     ctx.fillStyle = strawGrad;
     ctx.beginPath();
-    ctx.moveTo(x, peak - 1.5);
-    ctx.lineTo(x - eaveX, eaveY + 1.5);
-    ctx.lineTo(x - eaveX + 1, eaveY + 4.6);
+    ctx.moveTo(x - ridgeHalf, ridgeY);
+    ctx.lineTo(x + ridgeHalf, ridgeY);
+    ctx.lineTo(x + eaveX, eaveY + 1.5);
+    ctx.lineTo(x + eaveX - 1, eaveY + 4.6);
     // Postrzępiony spód słomy.
     const fringe = 9;
     for (let i = 1; i <= fringe; i++) {
@@ -2116,19 +2119,19 @@ export class Renderer {
       const jag = (hash2(seed, i, 21) * 2.6 - 1.3) * (1 - Math.abs(t - 0.5) * 1.1);
       ctx.lineTo(fx, eaveY + 3.4 + jag);
     }
-    ctx.lineTo(x + eaveX - 1, eaveY + 4.6);
-    ctx.lineTo(x + eaveX, eaveY + 1.5);
-    ctx.lineTo(x, peak - 1.5);
+    ctx.lineTo(x - eaveX + 1, eaveY + 4.6);
+    ctx.lineTo(x - eaveX, eaveY + 1.5);
+    ctx.lineTo(x - ridgeHalf, ridgeY);
     ctx.closePath();
     ctx.fill();
 
     // Ciepłe światło na lewej połaci.
     ctx.fillStyle = "rgba(255, 230, 170, 0.18)";
     ctx.beginPath();
-    ctx.moveTo(x, peak - 1);
+    ctx.moveTo(x - ridgeHalf, ridgeY + 0.4);
     ctx.lineTo(x - eaveX * 0.92, eaveY + 2.4);
     ctx.lineTo(x - eaveX * 0.38, eaveY + 2.8);
-    ctx.lineTo(x, peak + 1.5);
+    ctx.lineTo(x - ridgeHalf * 0.4, ridgeY + 1.2);
     ctx.closePath();
     ctx.fill();
 
