@@ -66,7 +66,6 @@ export class Renderer {
     this.canvas.style.height = `${h}px`;
     this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     this.game.camera.resize(w, h);
-    this._buildVignette();
     this.starField = null;
     this._buildStarField();
   }
@@ -484,27 +483,6 @@ export class Renderer {
     }
   }
 
-  _buildVignette() {
-    const c = document.createElement("canvas");
-    c.width = Math.max(2, this.width);
-    c.height = Math.max(2, this.height);
-    const ctx = c.getContext("2d");
-    const g = ctx.createRadialGradient(
-      c.width / 2,
-      c.height * 0.46,
-      Math.min(c.width, c.height) * 0.32,
-      c.width / 2,
-      c.height * 0.5,
-      Math.max(c.width, c.height) * 0.72
-    );
-    g.addColorStop(0, "rgba(0,0,0,0)");
-    g.addColorStop(0.72, "rgba(0,0,0,0.12)");
-    g.addColorStop(1, "rgba(0,0,0,0.46)");
-    ctx.fillStyle = g;
-    ctx.fillRect(0, 0, c.width, c.height);
-    this.vignette = c;
-  }
-
   _buildPersonShadow() {
     const c = document.createElement("canvas");
     c.width = 64;
@@ -558,7 +536,6 @@ export class Renderer {
     // Nakładki ekranowe.
     this._drawWeatherTint(ctx, game);
     this._drawNightTint(ctx, daylight);
-    if (this.vignette) ctx.drawImage(this.vignette, 0, 0, this.width, this.height);
     this._drawScreenFlash(ctx, game);
     this._drawCursorUI(ctx, game);
     ctx.restore();
@@ -2092,15 +2069,15 @@ export class Renderer {
     ctx.fillStyle = "rgba(255, 231, 186, 0.16)";
     ctx.fillRect(x - half - 1.2, wallTop - 0.2, w + 2.4, 0.7);
 
-    // Dach kryty słomą — gruby, postrzępiony okap i zaokrąglona kalenica.
+    // Dach kryty słomą — dwuspadowy, jak stodoła słowiańska.
     const eaveY = wallTop + 2.8;
     const eaveX = half + overhang + 2;
     const strawLight = mixColor(roof, "#f4d58d", 0.34);
     const strawShade = mixColor(roof, "#5a3f1f", 0.4);
 
-    // Dach dwupłaszczyznowy, siodłowy: dwa spady, płaska kalenica z góry.
-    const ridgeY = peak + 1.2;
-    const ridgeHalf = half * 0.46;
+    // Płaska kalenica na szczycie, dwa spady opadają na boki (/----\).
+    const ridgeY = peak + roofH * 0.30;
+    const ridgeHalf = half * 0.62;
     const strawGrad = ctx.createLinearGradient(0, ridgeY, 0, eaveY + 4);
     strawGrad.addColorStop(0, strawLight);
     strawGrad.addColorStop(0.42, roof);
@@ -2197,14 +2174,14 @@ export class Renderer {
     ctx.lineWidth = Math.max(2.4, roofH * 0.16);
     ctx.lineCap = "butt";
     ctx.beginPath();
-    ctx.moveTo(x - half * 0.46, peak + 0.8);
-    ctx.lineTo(x + half * 0.46, peak + 0.8);
+    ctx.moveTo(x - ridgeHalf, ridgeY);
+    ctx.lineTo(x + ridgeHalf, ridgeY);
     ctx.stroke();
     ctx.strokeStyle = "rgba(255, 235, 180, 0.32)";
     ctx.lineWidth = 0.6;
     ctx.beginPath();
-    ctx.moveTo(x - half * 0.44, peak);
-    ctx.lineTo(x + half * 0.44, peak);
+    ctx.moveTo(x - ridgeHalf * 0.92, ridgeY - 0.6);
+    ctx.lineTo(x + ridgeHalf * 0.92, ridgeY - 0.6);
     ctx.stroke();
 
     // Zerwany dach: ciemna wyrwa i trzepoczące pasma słomy.
@@ -6018,18 +5995,6 @@ export class Renderer {
     const dark = 1 - daylight;
     if (dark > 0.02) {
       ctx.fillStyle = `rgba(9, 14, 38, ${dark * 0.42})`;
-      ctx.fillRect(0, 0, this.width, this.height);
-      const g = ctx.createRadialGradient(
-        this.width * 0.5,
-        this.height * 0.44,
-        20,
-        this.width * 0.5,
-        this.height * 0.5,
-        this.width * 0.7
-      );
-      g.addColorStop(0, `rgba(255, 190, 120, ${dark * 0.035})`);
-      g.addColorStop(1, "rgba(255, 190, 120, 0)");
-      ctx.fillStyle = g;
       ctx.fillRect(0, 0, this.width, this.height);
     }
   }
