@@ -1,4 +1,4 @@
-import { clamp, formatHour } from "./utils.js?v=20261046-1";
+import { clamp, formatHour } from "./utils.js?v=20261046-5";
 
 export class UI {
   constructor(game) {
@@ -366,6 +366,7 @@ export class UI {
 
     const crops = game.crops;
     const food = Math.floor(crops?.food ?? 0);
+    const foodLimit = Math.floor(crops?.storageLimit ?? crops?.foodMax ?? 0);
     if (this._last.food !== food) {
       this._last.food = food;
       this.el.food.textContent = food;
@@ -375,7 +376,11 @@ export class UI {
       const hungry = game.population.people.filter(
         (p) => p.alive && p.hunger >= 0.85
       ).length;
-      const title = `Zapasy ziarna: ${food} / ${crops.foodMax} · głodni: ${hungry}`;
+      const granaries = game.granaries;
+      const storage = granaries
+        ? ` · spichlerze: ${granaries.granaries.length} (${granaries.storedGrain}/${granaries.totalCapacity})`
+        : "";
+      const title = `Zapasy ziarna: ${food} / ${foodLimit} · głodni: ${hungry}${storage}`;
       if (this._last.foodTitle !== title) {
         this._last.foodTitle = title;
         this.el.foodWrap.title = title;
@@ -535,6 +540,8 @@ export class UI {
       }
     } else if (person.homeBuild) {
       homeInfo = `<div class="tag">buduje własny dom</div>`;
+    } else if (person.granaryBuild) {
+      homeInfo = `<div class="tag">buduje spichlerz</div>`;
     } else if (person.ladderBuild) {
       homeInfo = `<div class="tag">szuka drewna na drabinę</div>`;
     }

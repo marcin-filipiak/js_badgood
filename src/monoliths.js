@@ -1,4 +1,4 @@
-import { chance, clamp, distance, rand } from "./utils.js?v=20261046-1";
+import { chance, clamp, distance, rand, TAU } from "./utils.js?v=20261046-5";
 
 /**
  * Kamienne monolity — materialny ślad boskiej mocy.
@@ -16,6 +16,7 @@ export class Monoliths {
     this.byId = new Map();
     this.monoliths = [];
     this.recentLush = [];
+    this.recentDeaths = [];
     this.time = 0;
     this._nextId = 1;
   }
@@ -32,6 +33,50 @@ export class Monoliths {
     if (this.recentLush.length > 240) this.recentLush.shift();
   }
 
+  /** Wywoływane przez Population.kill() dla każdej śmierci. */
+  recordDeath(person, cause = "starość") {
+    if (!this.enabled) return;
+    const ignored = this.config.ignoreCauses || [];
+    if (ignored.includes(cause)) return;
+
+    this.recentDeaths.push({
+      x: person.x,
+      y: person.y,
+      cause,
+      time: this.time,
+    });
+    this._pruneDeaths();
+
+    const ts = this.game.map.tileSize;
+    const radius = (this.config.deathClusterRadiusTiles ?? 6) * ts;
+    const cluster = this.recentDeaths.filter(
+      (death) => distance(death.x, death.y, person.x, person.y) <= radius
+    );
+    if (cluster.length < (this.config.deathThreshold ?? 4)) return;
+
+    const centerX = cluster.reduce((sum, d) => sum + d.x, 0) / cluster.length;
+    const centerY = cluster.reduce((sum, d) => sum + d.y, 0) / cluster.length;
+
+    // Nie stawiaj monolit tuż obok istniejącego.
+    const nearest = this._nearestSite(centerX, centerY);
+    const region = (this.config.regionRadiusTiles ?? 20) * ts;
+    if (nearest && distance(centerX, centerY, nearest.x, nearest.y) <= region) return;
+    if (this.sites.length >= (this.config.maxMonoliths ?? 8)) return;
+
+    const groundY = this.game.map.groundYAtWorldX(centerX);
+    this._createSite(centerX, groundY, {
+      toastText: "Wielka tragedia w dolinie — zemsta złego boga rodzi nowy monolit.",
+      toastType: "memorial",
+    });
+  }
+
+  _pruneDeaths() {
+    const window = this.config.deathWindowSeconds ?? 15;
+    while (this.recentDeaths.length && this.time - this.recentDeaths[0].time > window) {
+      this.recentDeaths.shift();
+    }
+  }
+
   update(dt) {
     if (!this.enabled) return;
     this.time += dt;
@@ -39,6 +84,7 @@ export class Monoliths {
     while (this.recentLush.length && this.time - this.recentLush[0].t > window) {
       this.recentLush.shift();
     }
+    this._pruneDeaths();
     const total = this.recentLush.reduce((s, e) => s + e.amount, 0);
     const night = this._isNight();
 
@@ -56,6 +102,50 @@ export class Monoliths {
       const site = this.sites[i];
       this._pruneParticipants(site);
       this._updateSite(site, dt, night);
+    }
+
+    // Monolit podpalony piorunem wypala się i znika z doliny.
+    for (let i = this.monoliths.length - 1; i >= 0; i--) {
+      const m = this.monoliths[i];
+      if (!m) continue;
+      if (m.burning) {
+        m.burnTimer += dt;
+        if (chance(dt * 6)) {
+          this.game.effects?.burst?.(
+            m.x + rand(-m.w * 0.45, m.w * 0.45),
+            m.y - rand(4, Math.max(6, m.h * 0.8)),
+            chance(0.5) ? "#ffb347" : "#ff6a2a",
+            1,
+            {
+              speed: rand(10, 26),
+              life: 0.6,
+              size: 1.6,
+              gravity: -38,
+              type: "flame",
+              spread: TAU,
+            }
+          );
+        }
+        if (chance(dt * 1.5)) {
+          this.game.effects?.burst?.(
+            m.x + rand(-m.w * 0.7, m.w * 0.7),
+            m.y - m.h * rand(0.7, 1),
+            "#4b4038",
+            1,
+            {
+              speed: rand(4, 12),
+              life: 1.6,
+              size: 2.2,
+              gravity: -22,
+              type: "smoke",
+              spread: TAU,
+            }
+          );
+        }
+        if (m.burnTimer >= m.burnDuration) {
+          this._destroyMonolith(m);
+        }
+      }
     }
   }
 
@@ -103,7 +193,7 @@ export class Monoliths {
     return best;
   }
 
-  _createSite(x, y) {
+  _createSite(x, y, opts = {}) {
     const h = rand(
       this.config.monolithHeightMin ?? 44,
       this.config.monolithHeightMax ?? 66
@@ -145,8 +235,8 @@ export class Monoliths {
 
     this._summon(site);
     this.game.ui?.toast?.(
-      "W krótkim czasie zebrano dużo Lush — ziemia rodzi kamienny monolit.",
-      "memorial"
+      opts.toastText ?? "W krótkim czasie zebrano dużo Lush — ziemia rodzi kamienny monolit.",
+      opts.toastType ?? "memorial"
     );
   }
 
@@ -467,5 +557,95 @@ export class Monoliths {
     const a = this.game.config.agents;
     const hr = this.game.hour;
     return hr >= (a.nightStartHour ?? 21) || hr < (a.dayStartHour ?? 6);
+  }
+
+  /** Piorun może podpalić monolit w promieniu uderzenia (nie tylko ogień od sąsiednich drzew). */
+  igniteAt(x, y, radius, opts = {}) {
+    let count = 0;
+    const ts = this.game.map.tileSize;
+    const chanceToIgnite = opts.chance ?? this.config.igniteChance ?? 0.85;
+
+    for (const m of this.monoliths) {
+      if (!m || m.burning) continue;
+      if (Math.abs(m.x - x) > radius + m.w * 0.5) continue;
+      if (Math.abs(m.y - y) > ts * 3) continue;
+      if (!chance(chanceToIgnite)) continue;
+      this._igniteMonolith(m);
+      count++;
+    }
+    return count;
+  }
+
+  _igniteMonolith(m) {
+    if (m.burning) return;
+    m.burning = true;
+    m.burnTimer = 0;
+    m.burnDuration = rand(3, 6);
+    m.firePhase = rand(0, Math.PI * 2);
+
+    // Osoby modlące się przy monolicie uciekają w panice, gdy kamień staje w ogniu.
+    const site = m.site ? this.byId.get(m.site.id) : null;
+    if (site) this._releaseAll(site);
+
+    this.game.effects?.burst?.(m.x, m.y - m.h * 0.25, "#ffb347", 22, {
+      speed: 36,
+      life: 0.9,
+      size: 2.2,
+      gravity: -50,
+      type: "flame",
+      spread: TAU,
+    });
+    this.game.effects?.burst?.(m.x, m.y - m.h * 0.4, "#4b4038", 10, {
+      speed: 20,
+      life: 1.8,
+      size: 3,
+      gravity: -26,
+      type: "smoke",
+      spread: TAU,
+    });
+  }
+
+  _destroyMonolith(monolith) {
+    const site = monolith.site ? this.byId.get(monolith.site.id) : null;
+    if (site) {
+      this._releaseAll(site);
+      this.byId.delete(site.id);
+      const sIdx = this.sites.indexOf(site);
+      if (sIdx >= 0) this.sites.splice(sIdx, 1);
+    }
+    const idx = this.monoliths.indexOf(monolith);
+    if (idx >= 0) this.monoliths.splice(idx, 1);
+
+    this.game.effects?.burst?.(monolith.x, monolith.y - monolith.h * 0.35, "#ff7a2a", 24, {
+      speed: 36,
+      life: 0.8,
+      size: 2.4,
+      gravity: -60,
+      type: "flame",
+      spread: TAU,
+    });
+    this.game.effects?.burst?.(monolith.x, monolith.y - monolith.h * 0.2, "#5b4a3e", 24, {
+      speed: 26,
+      life: 2.2,
+      size: 3.5,
+      gravity: -24,
+      type: "smoke",
+      spread: TAU,
+    });
+    const decals = this.game.effects?.decals;
+    if (decals) {
+      decals.push({
+        x: monolith.x,
+        y: monolith.y,
+        w: monolith.w * 6,
+        h: monolith.w * 2,
+        rotation: rand(-0.2, 0.2),
+        life: 24,
+        maxLife: 24,
+        type: "scorch",
+      });
+      if (decals.length > 60) decals.shift();
+    }
+    this.game.ui?.toast?.("Monolit spłonął. Popiół pozostaje na miejscu.", "fire");
   }
 }

@@ -1,4 +1,4 @@
-import { rand, chance, clamp, TAU } from "./utils.js?v=20261046-1";
+import { rand, chance, clamp, TAU } from "./utils.js?v=20261046-5";
 
 export class Effects {
   constructor(game) {

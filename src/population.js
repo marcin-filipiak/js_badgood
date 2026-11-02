@@ -1,5 +1,5 @@
-import { Person } from "./person.js?v=20261046-1";
-import { rand, randInt, chance, choice, distance, clamp, ageGroup } from "./utils.js?v=20261046-1";
+import { Person } from "./person.js?v=20261046-9";
+import { rand, randInt, chance, choice, distance, clamp, ageGroup } from "./utils.js?v=20261046-5";
 
 export class Population {
   constructor(game) {
@@ -235,11 +235,13 @@ export class Population {
 
     this.stats.deaths++;
     this.game.housing?.release(person);
+    this.game.granaries?.release(person);
     this.game.ladders?.release(person);
     this.game.crops?.release(person);
     this.game.memorials?.release(person);
     this.game.monoliths?.release(person);
     this.game.memorials?.recordDeath(person, cause);
+    this.game.monoliths?.recordDeath(person, cause);
     // Śmierć oddaje całe nagromadzone życie jako jednorazowe żniwo Lush.
     const lushGain = this.game.powers?.grantDeathLush(person) || 0;
     const lushSuffix =

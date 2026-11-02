@@ -1,4 +1,4 @@
-import { rand, chance, clamp, hash2, choice, TAU } from "./utils.js?v=20261046-1";
+import { rand, chance, clamp, hash2, choice, TAU } from "./utils.js?v=20261046-5";
 
 /**
  * Drzewa są częścią symulacji, nie tylko dekoracją. Piorun podpala las,
@@ -323,6 +323,11 @@ export class Vegetation {
     // Ogień z koron potrafi przeskoczyć na dach chaty.
     this.game.housing?.igniteAt(source.x, source.y, radius, {
       chance: this.game.config.housing?.treeIgniteChance ?? 0.08,
+    });
+
+    // Iskry padają też na spichlerze.
+    this.game.granaries?.igniteAt(source.x, source.y, radius, {
+      chance: this.game.config.granaries?.treeIgniteChance ?? 0.08,
     });
 
     // Rozżarzone iskry padają też na pola uprawne.

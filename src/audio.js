@@ -141,6 +141,78 @@ export class AudioSystem {
     });
   }
 
+  /** Proceduralne wycie wilka — przeciągły, lekko drżący ton opadający ku końcowi. */
+  howl() {
+    if (!this.ctx || this.muted) return;
+    const now = this.ctx.currentTime;
+    const base = 250 + Math.random() * 90;
+
+    const out = this.ctx.createGain();
+    out.gain.setValueAtTime(0.0001, now);
+    out.gain.exponentialRampToValueAtTime(0.12, now + 0.4);
+    out.gain.setValueAtTime(0.12, now + 1.15);
+    out.gain.exponentialRampToValueAtTime(0.0001, now + 2.5);
+    out.connect(this.master);
+
+    const osc = this.ctx.createOscillator();
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(base * 0.76, now);
+    osc.frequency.exponentialRampToValueAtTime(base * 1.1, now + 0.5);
+    osc.frequency.setValueAtTime(base * 1.1, now + 1.05);
+    osc.frequency.exponentialRampToValueAtTime(base * 0.68, now + 2.35);
+
+    // Wolne vibrato sprawia, że ton „drży” jak wilcze gardło.
+    const lfo = this.ctx.createOscillator();
+    lfo.type = "sine";
+    lfo.frequency.value = 5 + Math.random() * 1.6;
+    const lfoGain = this.ctx.createGain();
+    lfoGain.gain.value = base * 0.02;
+    lfo.connect(lfoGain);
+    lfoGain.connect(osc.frequency);
+
+    const filter = this.ctx.createBiquadFilter();
+    filter.type = "lowpass";
+    filter.frequency.value = 1400;
+
+    // Cicha druga harmoniczna nadaje wyciu nosowy, zwierzęcy charakter.
+    const harmonic = this.ctx.createOscillator();
+    harmonic.type = "triangle";
+    harmonic.frequency.setValueAtTime(base * 1.96, now);
+    harmonic.frequency.exponentialRampToValueAtTime(base * 2.1, now + 0.5);
+    harmonic.frequency.exponentialRampToValueAtTime(base * 1.42, now + 2.3);
+    const harmonicGain = this.ctx.createGain();
+    harmonicGain.gain.value = 0.18;
+
+    osc.connect(filter);
+    harmonic.connect(harmonicGain);
+    harmonicGain.connect(filter);
+    filter.connect(out);
+
+    osc.start(now);
+    lfo.start(now);
+    harmonic.start(now);
+    osc.stop(now + 2.55);
+    lfo.stop(now + 2.55);
+    harmonic.stop(now + 2.55);
+
+    // Krótki oddech przed wyciem i cichy szum po nim.
+    const breath = this.ctx.createBufferSource();
+    breath.buffer = this.noiseBuffer;
+    const breathFilter = this.ctx.createBiquadFilter();
+    breathFilter.type = "bandpass";
+    breathFilter.frequency.value = 780;
+    breathFilter.Q.value = 0.7;
+    const breathGain = this.ctx.createGain();
+    breathGain.gain.setValueAtTime(0.0001, now);
+    breathGain.gain.exponentialRampToValueAtTime(0.022, now + 0.25);
+    breathGain.gain.exponentialRampToValueAtTime(0.0001, now + 1.9);
+    breath.connect(breathFilter);
+    breathFilter.connect(breathGain);
+    breathGain.connect(this.master);
+    breath.start(now);
+    breath.stop(now + 2);
+  }
+
   update(dt, cover) {
     if (!this.ctx || !this.rainGain) return;
     // Automatyzacja Web Audio nie musi być aktualizowana w każdym kroku

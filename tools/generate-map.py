@@ -14,7 +14,7 @@ import json
 import math
 import random
 
-WIDTH = 260
+WIDTH = 520
 HEIGHT = 64
 SEED = 20261023
 
@@ -44,12 +44,15 @@ def build_map(seed=SEED):
         y = 48.0
         y += noise(x) * 3.2
         y += mid_noise(x * 1.7) * 1.8
-        # dwa pasma górskie
-        y -= 17.0 * math.exp(-((x - 42) / 21.0) ** 2)
-        y -= 15.0 * math.exp(-((x - 226) / 24.0) ** 2)
+        # łagodne pagórki w środkowej części doliny
+        y -= 5.5 * math.exp(-((x - 185) / 20.0) ** 2)
+        y -= 4.0 * math.exp(-((x - 300) / 26.0) ** 2)
+        # skalny masyw po prawej stronie mapy
+        y -= 27.0 * math.exp(-((x - 438) / 34.0) ** 2)
+        y -= 13.0 * math.exp(-((x - 498) / 22.0) ** 2)
         # łagodne wzgórza po bokach, żeby świat nie był płaski
         y -= 5.0 * math.exp(-((x - 15) / 15.0) ** 2)
-        y -= 4.0 * math.exp(-((x - 175) / 26.0) ** 2)
+        y -= 4.0 * math.exp(-((x - 355) / 24.0) ** 2)
         surface.append(int(round(y)))
 
     # --- Dolina wioski: płaski, bezpieczny plac --------------------------
@@ -66,25 +69,25 @@ def build_map(seed=SEED):
         surface[x] += carve
 
     # --- Głęboka miska z wysokim brzegiem (pułapka na deszcz) -----------
-    for x in range(188, 215):
-        t = abs(x - 201.5) / 13.5
-        carve = int(round(10.5 * (1 - t ** 2)))
+    for x in range(220, 253):
+        t = abs(x - 236.5) / 16.5
+        carve = int(round(10.0 * (1 - t ** 2)))
         surface[x] += carve
     # podnieś brzegi, by woda miała gdzie się zbierać
-    for x in range(183, 189):
+    for x in range(214, 220):
         surface[x] -= 2
-    for x in range(215, 221):
+    for x in range(253, 259):
         surface[x] -= 2
 
-    # --- Stałe jezioro w zagłębieniu (ręcznie ukształtowana niecka) ------
-    lake_center = 62
+    # --- Stałe, małe jezioro w zagłębieniu (lewa strona) -----------------
+    lake_center = 64
     lake_level = 50
-    for x in range(lake_center - 10, lake_center + 11):
-        t = abs(x - lake_center) / 11.0
+    for x in range(lake_center - 9, lake_center + 10):
+        t = abs(x - lake_center) / 9.0
         surface[x] = int(round(54 + 3 * (1 - t ** 2) - 7 * (t ** 1.7)))
         surface[x] = max(surface[x], 49)
     # woda wypełni wszystkie pola poniżej poziomu jeziora
-    lake_cols = set(range(lake_center - 8, lake_center + 9))
+    lake_cols = set(range(lake_center - 7, lake_center + 8))
 
     # --- Lasy ------------------------------------------------------------
     forest = [False] * WIDTH

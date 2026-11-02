@@ -1,4 +1,4 @@
-import { rand, clamp, chance } from "./utils.js?v=20261046-1";
+import { rand, clamp, chance } from "./utils.js?v=20261046-5";
 
 export class Powers {
   constructor(game) {
@@ -275,6 +275,9 @@ export class Powers {
     this.game.camera.shake(7 + level * 2, 0.35 + level * 0.05);
     this.game.audio.thunder();
 
+    // Piorun zabija też wilki, jeśli trafi w watahę.
+    this.game.wolves?.strikeAt(strikeX, strikeY, radius, ts);
+
     const killedNames = [];
     let lushGained = 0;
 
@@ -283,6 +286,11 @@ export class Powers {
     const sheltered = new Set();
     const housesIgnited = this.game.housing
       ? this.game.housing.igniteAt(strikeX, strikeY, radius, { sheltered })
+      : 0;
+
+    // Piorun podpala też spichlerze. Ziarno w środku przepada.
+    const granariesIgnited = this.game.granaries
+      ? this.game.granaries.igniteAt(strikeX, strikeY, radius, {})
       : 0;
 
     for (const person of [...this.game.population.people]) {
@@ -308,23 +316,44 @@ export class Powers {
         })
       : 0;
 
+    // Piorun może podpalić też drabiny wokół miejsca uderzenia (nie tylko ogień
+    // od palących się obok drzew).
+    const laddersIgnited = this.game.ladders
+      ? this.game.ladders.igniteAt(strikeX, strikeY, radius)
+      : 0;
+
+    // Piorun może podpalić też kamienne monolity (bożki) wokół miejsca uderzenia.
+    const monolithsIgnited = this.game.monoliths
+      ? this.game.monoliths.igniteAt(strikeX, strikeY, radius)
+      : 0;
+
     if (killedNames.length === 0) {
       if (ignited > 0) {
         this.game.ui.toast("Grom podpala las.", "fire");
       } else if (housesIgnited > 0) {
         this.game.ui.toast("Grom podpala chatę.", "fire");
+      } else if (granariesIgnited > 0) {
+        this.game.ui.toast("Grom podpala spichlerz.", "fire");
       } else if (cropsIgnited > 0) {
         this.game.ui.toast("Grom trawi uprawy.", "fire");
+      } else if (laddersIgnited > 0) {
+        this.game.ui.toast("Grom podpala drabinę.", "fire");
+      } else if (monolithsIgnited > 0) {
+        this.game.ui.toast("Grom podpala monolit.", "fire");
       } else {
         this.game.ui.toast("Grom uderza w jałową ziemię.", "");
       }
     } else if (killedNames.length === 1) {
       const fire = ignited > 0 ? " Las staje w płomieniach." : "";
-      this.game.ui.toast(`${killedNames[0]} ginie od pioruna.${fire}${lushText}`, "death");
+      const ladderFire = laddersIgnited > 0 ? " i drabinę" : "";
+      const monoFire = monolithsIgnited > 0 ? " i monolit" : "";
+      this.game.ui.toast(`${killedNames[0]} ginie od pioruna.${fire}${ladderFire}${monoFire}${lushText}`, "death");
     } else {
       const fire = ignited > 0 ? " i podpala las" : "";
+      const ladderFire = laddersIgnited > 0 ? " i drabiny" : "";
+      const monoFire = monolithsIgnited > 0 ? " i monolit" : "";
       this.game.ui.toast(
-        `Grom zabija ${killedNames.length} ${this._peopleWord(killedNames.length)}${fire}.${lushText}`,
+        `Grom zabija ${killedNames.length} ${this._peopleWord(killedNames.length)}${fire}${ladderFire}${monoFire}.${lushText}`,
         "death"
       );
     }
@@ -487,6 +516,12 @@ export class Powers {
     game.effects.quake?.(worldX, effectY, radiusPx, mode, level);
     game.audio.quake?.(level);
 
+    // Trzęsienie ziemi niszczy miejsca pamięci w zasięgu wstrząsu.
+    let memorialsDestroyed = 0;
+    if (game.memorials) {
+      memorialsDestroyed = game.memorials.destroyNear(worldX, worldY, radiusPx);
+    }
+
     const lushText = lushGained >= 1 ? ` +${Math.round(lushGained)} Lush` : "";
     if (mode === "fill") {
       if (killedNames.length === 0) {
@@ -518,6 +553,13 @@ export class Powers {
       }
     }
 
+    if (memorialsDestroyed > 0) {
+      game.ui.toast(
+        `Trzęsienie ziemi zburza ${memorialsDestroyed} ${memorialsDestroyed === 1 ? "miejsce pamięci" : "miejsca pamięci"}.`,
+        "memorial"
+      );
+    }
+
     // Trzęsienie ziemi niszczy drabiny oparte na wstrząśniętym podłożu.
     const ladders = game.ladders;
     if (ladders) {
@@ -544,6 +586,9 @@ export class Powers {
         if (idx >= 0) ladders.sites.splice(idx, 1);
       }
     }
+
+    // Trzęsienie ziemi zabija wilki w zasięgu wstrząsu.
+    game.wolves?.quakeAt(worldX, radiusPx, mode, level);
 
     // Nic nie może zostać wisieć w powietrzu: przesunąć drzewa, uprawy i chaty,
     // których ziemia się pod nimi zmieniła.

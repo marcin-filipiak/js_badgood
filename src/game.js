@@ -1,22 +1,24 @@
-import { WorldMap } from "./map.js?v=20261046-1";
-import { WaterSystem } from "./water.js?v=20261046-1";
-import { Population } from "./population.js?v=20261046-1";
-import { Memorials } from "./memorials.js?v=20261046-1";
-import { Weather } from "./weather.js?v=20261046-1";
-import { Vegetation } from "./vegetation.js?v=20261046-1";
-import { Housing } from "./housing.js?v=20261046-1";
-import { Ladders } from "./ladders.js?v=20261046-1";
-import { Monoliths } from "./monoliths.js?v=20261046-1";
-import { Crops } from "./crops.js?v=20261046-1";
-import { WindSystem } from "./wind.js?v=20261046-1";
-import { Powers } from "./powers.js?v=20261046-1";
-import { Effects } from "./effects.js?v=20261046-1";
-import { Camera } from "./camera.js?v=20261046-1";
-import { Renderer } from "./renderer.js?v=20261046-1";
-import { AudioSystem } from "./audio.js?v=20261046-1";
-import { Input } from "./input.js?v=20261046-1";
-import { UI } from "./ui.js?v=20261046-1";
-import { clamp } from "./utils.js?v=20261046-1";
+import { WorldMap } from "./map.js?v=20261046-5";
+import { WaterSystem } from "./water.js?v=20261046-5";
+import { Population } from "./population.js?v=20261046-9";
+import { Memorials } from "./memorials.js?v=20261046-5";
+import { Weather } from "./weather.js?v=20261046-5";
+import { Vegetation } from "./vegetation.js?v=20261046-5";
+import { Housing } from "./housing.js?v=20261046-5";
+import { Granaries } from "./granaries.js?v=20261046-5";
+import { Ladders } from "./ladders.js?v=20261046-5";
+import { Monoliths } from "./monoliths.js?v=20261046-6";
+import { Crops } from "./crops.js?v=20261046-5";
+import { WindSystem } from "./wind.js?v=20261046-5";
+import { Wolves } from "./wolves.js?v=20261046-9";
+import { Powers } from "./powers.js?v=20261046-7";
+import { Effects } from "./effects.js?v=20261046-5";
+import { Camera } from "./camera.js?v=20261046-5";
+import { Renderer } from "./renderer.js?v=20261046-7";
+import { AudioSystem } from "./audio.js?v=20261046-7";
+import { Input } from "./input.js?v=20261046-5";
+import { UI } from "./ui.js?v=20261046-5";
+import { clamp } from "./utils.js?v=20261046-5";
 
 const FIXED_STEP = 1 / 60;
 // Ile milisekund na klatkę wolno poświęcić symulacji. Bez tego limitu wolne
@@ -64,7 +66,9 @@ export class Game {
     this.housing = new Housing(this);
     this.ladders = new Ladders(this);
     this.crops = new Crops(this);
+    this.granaries = new Granaries(this);
     this.wind = new WindSystem(this);
+    this.wolves = new Wolves(this);
 
     this.renderer = new Renderer(this);
     this.renderer.resize();
@@ -319,6 +323,7 @@ export class Game {
     }
     this.housing.update(dt);
     this.crops.update(dt);
+    this.granaries.update(dt);
     this.ladders.update(dt);
     this.memorials.update(dt);
     this.monoliths?.update(dt);
@@ -326,6 +331,7 @@ export class Game {
     this.vegetation.update(dt);
     this.wind.update(dt);
     this.water.update(dt);
+    this.wolves?.update(dt);
     this.powers.update(dt);
     this.effects.update(dt);
     this.audio.update(dt, this.weather.cover);

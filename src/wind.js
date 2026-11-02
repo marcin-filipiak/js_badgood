@@ -1,4 +1,4 @@
-import { chance, choice, clamp, rand } from "./utils.js?v=20261046-1";
+import { chance, choice, clamp, rand } from "./utils.js?v=20261046-5";
 
 /**
  * Wiatr: podmuch ma środek, promień, czas życia i siłę 1–3.
@@ -134,6 +134,14 @@ export class WindSystem {
         gust.dir
       );
       this.game.housing?.windAt(
+        gust.x,
+        gust.y,
+        gust.radius,
+        strength,
+        dt * intensity,
+        gust.dir
+      );
+      this.game.granaries?.windAt(
         gust.x,
         gust.y,
         gust.radius,

@@ -8,7 +8,7 @@ import {
   rand,
   lerp,
   ageGroup,
-} from "./utils.js?v=20261046-1";
+} from "./utils.js?v=20261046-5";
 
 /** Gładki szum wartościowy (0..1) bez prostokątnej siatki. */
 function valueNoise2(x, y, seed) {
@@ -522,6 +522,7 @@ export class Renderer {
     this._drawMemorials(ctx, game, view);
     this._drawMonoliths(ctx, game, view);
     this._drawHouses(ctx, game, view);
+    this._drawGranaries(ctx, game, view);
     this._drawCrops(ctx, game, view);
     this._drawTrees(ctx, view, game);
     this._drawLadders(ctx, game, view);
@@ -1167,6 +1168,11 @@ export class Renderer {
     const pulse = 0.55 + 0.45 * Math.sin(this.time * 1.7 + (m.phase || 0));
     const participants = site ? site.participants.size : 0;
     const awake = site ? site.state !== "idle" : false;
+    const burning = !!m.burning;
+    const burn = burning
+      ? clamp((m.burnTimer ?? 0) / Math.max(0.001, m.burnDuration ?? 1), 0, 1)
+      : 0;
+    const firePhase = m.firePhase ?? seed;
 
     const baseW = w * 0.72;
     const topW = w * 0.42;
@@ -1593,7 +1599,54 @@ export class Renderer {
     ctx.lineTo(m.x + bR * 0.96, m.y - 1);
     ctx.stroke();
 
+    // Zwęglenie drewna narastające w trakcie płonięcia.
+    if (burning) {
+      const charAmount = 0.28 + burn * 0.55;
+      const charGrad = ctx.createLinearGradient(0, m.y, 0, m.y - h);
+      charGrad.addColorStop(0, `rgba(18, 11, 8, ${0.68 * charAmount})`);
+      charGrad.addColorStop(0.55, `rgba(24, 14, 9, ${0.5 * charAmount})`);
+      charGrad.addColorStop(1, `rgba(66, 34, 16, ${0.24 * charAmount})`);
+      ctx.fillStyle = charGrad;
+      ctx.beginPath();
+      ctx.moveTo(m.x - bL, m.y + 1);
+      ctx.lineTo(m.x - mL, midY);
+      ctx.lineTo(m.x - tL, topY);
+      ctx.lineTo(m.x + tR, topY);
+      ctx.lineTo(m.x + mR, midY);
+      ctx.lineTo(m.x + bR, m.y + 1);
+      ctx.closePath();
+      ctx.fill();
+
+      // Rozżarzone pęknięcia prześwitujące przez zwęglone drewno.
+      ctx.save();
+      ctx.globalCompositeOperation = "lighter";
+      const emberAlpha =
+        (0.22 + burn * 0.32) * (0.72 + 0.28 * Math.sin(this.time * 9 + firePhase));
+      ctx.strokeStyle = `rgba(255, 132, 40, ${emberAlpha})`;
+      ctx.lineWidth = Math.max(0.45, w * 0.035);
+      for (let i = 0; i < 4; i++) {
+        const top = m.y - h * (0.18 + hash2(seed, i, 301) * 0.55);
+        const bottom = top + h * (0.08 + hash2(seed, i, 307) * 0.18);
+        const x0 = m.x + (hash2(seed, i, 311) - 0.5) * bL * 1.15;
+        ctx.beginPath();
+        ctx.moveTo(x0, bottom);
+        ctx.quadraticCurveTo(
+          x0 + (hash2(seed, i, 313) - 0.5) * w * 0.2,
+          (top + bottom) * 0.5,
+          x0 + (hash2(seed, i, 317) - 0.5) * w * 0.24,
+          top
+        );
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
     ctx.restore(); // koniec przycinania/wynurzania
+
+    // Ogień obejmujący płonący monolit.
+    if (burning) {
+      this._drawMonolithFire(ctx, m, h, w, burn, seed, firePhase);
+    }
 
     // Pył i drobne odłamki podczas wynurzania.
     if (rise < 0.99) {
@@ -1639,6 +1692,160 @@ export class Renderer {
       ctx.restore();
     }
 
+    ctx.restore();
+  }
+
+  /** Ogień, żar i dym unoszące się z podpalonego monolitu. */
+  _drawMonolithFire(ctx, m, h, w, burn, seed, phase) {
+    const t = this.time;
+    const progress = clamp(burn, 0, 1);
+    const intensity = 0.55 + 0.45 * Math.sin(Math.PI * progress);
+    const poleBase = m.y + 0.6;
+    const poleTop = m.y - h;
+
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+
+    // Miękka łuna ciepła wokół płonącego bożka.
+    const glowR = h * (0.78 + intensity * 0.38);
+    const glow = ctx.createRadialGradient(
+      m.x,
+      m.y - h * 0.45,
+      2,
+      m.x,
+      m.y - h * 0.45,
+      glowR
+    );
+    glow.addColorStop(0, `rgba(255, 156, 54, ${0.18 + intensity * 0.18})`);
+    glow.addColorStop(0.45, `rgba(255, 96, 24, ${0.07 + intensity * 0.07})`);
+    glow.addColorStop(1, "rgba(255, 70, 15, 0)");
+    ctx.fillStyle = glow;
+    ctx.beginPath();
+    ctx.arc(m.x, m.y - h * 0.45, glowR, 0, TAU);
+    ctx.fill();
+
+    const flame = (cx, baseY, fw, fh, fSeed, inner = false) => {
+      const sway =
+        Math.sin(t * 7.5 + fSeed * 9.7) * fw * 0.65 +
+        Math.sin(t * 15.5 + fSeed * 21.3) * fw * 0.22;
+      const swayMid = Math.sin(t * 9 + fSeed * 13) * fw * 0.35;
+      const grad = ctx.createLinearGradient(0, baseY, 0, baseY - fh);
+      if (inner) {
+        grad.addColorStop(0, "rgba(255, 238, 168, 0.92)");
+        grad.addColorStop(0.45, "rgba(255, 206, 94, 0.8)");
+        grad.addColorStop(1, "rgba(255, 232, 150, 0.02)");
+      } else {
+        grad.addColorStop(0, "rgba(255, 92, 22, 0.72)");
+        grad.addColorStop(0.42, "rgba(255, 156, 38, 0.66)");
+        grad.addColorStop(1, "rgba(255, 214, 120, 0.02)");
+      }
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.moveTo(cx - fw, baseY);
+      ctx.quadraticCurveTo(
+        cx - fw * 0.92,
+        baseY - fh * 0.42,
+        cx + swayMid,
+        baseY - fh * 0.7
+      );
+      ctx.quadraticCurveTo(
+        cx + sway,
+        baseY - fh * 0.92,
+        cx + sway * 0.35,
+        baseY - fh
+      );
+      ctx.quadraticCurveTo(
+        cx + fw * 0.9,
+        baseY - fh * 0.46,
+        cx + fw,
+        baseY
+      );
+      ctx.closePath();
+      ctx.fill();
+    };
+
+    // Płomienie liżące drewniany słup na różnych wysokościach.
+    for (let i = 0; i < 11; i++) {
+      const hx = hash2(seed, i, 331);
+      const hy = hash2(seed, i, 337);
+      const hz = hash2(seed, i, 347);
+      const baseY = poleBase - h * (0.02 + hx * 0.78);
+      const fh =
+        (4.5 + h * (0.12 + hy * 0.18)) *
+        intensity *
+        (0.8 + 0.2 * Math.sin(t * 10.5 + hz * TAU));
+      const fw = w * (0.1 + hz * 0.24);
+      const cx = m.x + (hy * 2 - 1) * w * 0.34;
+      flame(cx, baseY, fw, fh, hx + i * 0.37, false);
+      if (i % 3 === 0) {
+        flame(
+          cx + w * 0.03,
+          baseY - fh * 0.08,
+          fw * 0.42,
+          fh * 0.58,
+          hz + i * 0.61,
+          true
+        );
+      }
+    }
+
+    // Główny język ognia u podstawy monolitu.
+    const baseFlameH =
+      (h * 0.34 + 8) * intensity * (0.86 + 0.14 * Math.sin(t * 8 + phase));
+    flame(m.x, poleBase + 1, w * 0.34, baseFlameH, phase, false);
+    flame(
+      m.x - w * 0.12,
+      poleBase + 0.5,
+      w * 0.18,
+      baseFlameH * 0.64,
+      phase + 2.1,
+      true
+    );
+
+    ctx.restore();
+
+    // Iskry i drobne węgle unoszące się nad ogniem.
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    for (let i = 0; i < 16; i++) {
+      const hx = hash2(seed, i, 353);
+      const hy = hash2(seed, i, 359);
+      const tPhase = (t * (0.18 + hx * 0.22) + hy) % 1;
+      const px =
+        m.x +
+        (hash2(seed, i, 367) * 2 - 1) * w * 0.9 +
+        Math.sin(t * 2.2 + hx * TAU) * w * 0.35;
+      const py = poleBase - tPhase * h * (0.85 + hy * 0.45);
+      const alpha = Math.sin(Math.PI * tPhase) * (0.3 + intensity * 0.55);
+      const size = 0.35 + hx * 0.9;
+      ctx.fillStyle =
+        i % 4 === 0
+          ? `rgba(255, 244, 190, ${alpha})`
+          : `rgba(255, ${120 + Math.floor(hy * 80)}, 40, ${alpha})`;
+      ctx.beginPath();
+      ctx.arc(px, py, size, 0, TAU);
+      ctx.fill();
+    }
+    ctx.restore();
+
+    // Dym unoszący się nad płonącym kamieniem.
+    ctx.save();
+    for (let i = 0; i < 5; i++) {
+      const hx = hash2(seed, i, 373);
+      const hy = hash2(seed, i, 379);
+      const tPhase = (t * (0.12 + hx * 0.08) + hy) % 1;
+      const px =
+        m.x +
+        (hash2(seed, i, 383) * 2 - 1) * w * 1.1 +
+        Math.sin(t * 1.2 + hx * TAU) * w * 1.1;
+      const py = poleTop - tPhase * h * 0.8 - 2;
+      const alpha = Math.sin(Math.PI * tPhase) * 0.16 * (0.4 + intensity * 0.6);
+      const size = (1.6 + hx * 2.4) * (0.55 + tPhase * 1.4);
+      ctx.fillStyle = `rgba(46, 42, 38, ${alpha})`;
+      ctx.beginPath();
+      ctx.arc(px, py, size, 0, TAU);
+      ctx.fill();
+    }
     ctx.restore();
   }
 
@@ -1729,16 +1936,11 @@ export class Renderer {
   _drawObelisk(ctx, obelisk) {
     const { x, y, h, w } = obelisk;
     const seed = Math.floor((obelisk.seed ?? 1) * 1000);
-    // Kopiec jest stały, a drewniany znaczek wyrasta z niego w trakcie budowy.
+    // Kopiec jest stały, a stos kamieni wyrasta z niego w trakcie budowy.
     const moundW = Math.max(14, w * 3.6);
     const moundH = Math.max(3.6, w * 0.82);
     const postH = Math.max(2.5, h * 0.86);
-    const postBase = y - moundH * 0.5;
-    const postTop = postBase - postH;
     const bottomW = Math.max(2.1, w * 0.5);
-    const topW = Math.max(1.6, bottomW * 0.76);
-    const capW = topW * 2.15;
-    const capH = Math.max(1.8, w * 0.52);
 
     ctx.save();
 
@@ -1762,6 +1964,14 @@ export class Renderer {
     ctx.closePath();
     ctx.fill();
 
+    // Ciemniejsza warstwa ziemi przy podstawie kopca.
+    ctx.strokeStyle = "rgba(44, 30, 18, 0.32)";
+    ctx.lineWidth = 0.7;
+    ctx.beginPath();
+    ctx.moveTo(x - moundW * 0.84, y - 1.2);
+    ctx.quadraticCurveTo(x, y - 2.2, x + moundW * 0.84, y - 1.1);
+    ctx.stroke();
+
     // Jaśniejsza grzęda i darń na szczycie.
     ctx.fillStyle = "rgba(255, 225, 178, 0.1)";
     ctx.beginPath();
@@ -1776,7 +1986,7 @@ export class Renderer {
     ctx.fill();
 
     // Kępki trawy i drobne kwiaty na kopcu.
-    for (let i = 0; i < 7; i++) {
+    for (let i = 0; i < 9; i++) {
       const t = hash2(seed, i, 13);
       const gx = x + (t * 2 - 1) * moundW * 0.82;
       const gy = y - moundH * (0.16 + hash2(seed, i, 17) * 0.62);
@@ -1798,115 +2008,198 @@ export class Renderer {
       }
     }
     // Otoczaki u podnóża kopca.
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < 7; i++) {
       const hx = hash2(seed + i, 23, 5);
-      const px = x + (hx * 2 - 1) * moundW * 0.92;
-      ctx.fillStyle = i % 2 ? "rgba(108, 105, 96, 0.7)" : "rgba(128, 121, 106, 0.62)";
+      const hy = hash2(seed + i, 31, 7);
+      const px = x + (hx * 2 - 1) * moundW * 0.95;
+      const py = y - 1.1 - hy * 0.7;
+      const rw = 1.1 + hx * 1.7;
+      const rh = 0.6 + hx * 0.5;
+      ctx.fillStyle = i % 2 ? "rgba(108, 105, 96, 0.72)" : "rgba(132, 125, 110, 0.68)";
       ctx.beginPath();
-      ctx.ellipse(px, y - 1.2, 1.2 + hx * 1.5, 0.7 + hx * 0.4, 0, 0, TAU);
+      ctx.ellipse(px, py, rw, rh, (hy - 0.5) * 0.5, 0, TAU);
+      ctx.fill();
+      ctx.fillStyle = "rgba(224, 215, 194, 0.2)";
+      ctx.beginPath();
+      ctx.ellipse(px - rw * 0.18, py - rh * 0.35, rw * 0.55, rh * 0.4, 0, 0, TAU);
       ctx.fill();
     }
 
-    // Drewniany słupek przodków z daszkiem.
+    // Stos nieregularnych kamieni ułożonych jeden na drugim.
     if (postH > 3.2) {
-      const postGrad = ctx.createLinearGradient(x - bottomW, 0, x + bottomW, 0);
-      postGrad.addColorStop(0, "#3a2112");
-      postGrad.addColorStop(0.4, "#6b4223");
-      postGrad.addColorStop(0.74, "#84542b");
-      postGrad.addColorStop(1, "#3a2112");
-      ctx.fillStyle = postGrad;
-      ctx.beginPath();
-      ctx.moveTo(x - bottomW, postBase);
-      ctx.lineTo(x - topW, postTop);
-      ctx.lineTo(x + topW, postTop);
-      ctx.lineTo(x + bottomW, postBase);
-      ctx.closePath();
-      ctx.fill();
-      // Słoje.
-      ctx.strokeStyle = "rgba(40, 22, 9, 0.35)";
-      ctx.lineWidth = 0.45;
-      for (let i = 1; i < 3; i++) {
-        const t = i / 3;
-        const lx0 = x - bottomW + bottomW * 2 * t;
-        const lx1 = x - topW + topW * 2 * t;
-        ctx.beginPath();
-        ctx.moveTo(lx0, postBase - 0.5);
-        ctx.lineTo(lx1, postTop + 0.5);
-        ctx.stroke();
+      const stoneCount = clamp(Math.round(postH / 5.4), 2, 7);
+      const stoneH = postH / stoneCount;
+      let cursorY = y - moundH * 0.95;
+
+      for (let i = 0; i < stoneCount; i++) {
+        const fromBottom = i / Math.max(1, stoneCount - 1);
+        const hx = hash2(seed, i, 201);
+        const hy = hash2(seed, i, 203);
+        const stoneW =
+          Math.max(2.3, bottomW * (1 - fromBottom * 0.48)) * (0.92 + hx * 0.18);
+        const sh = stoneH * (0.96 + hy * 0.12);
+        const cx = x + (hash2(seed, i, 207) * 2 - 1) * stoneW * 0.18;
+        const rot = (hash2(seed, i, 209) * 2 - 1) * 0.13;
+        this._drawCairnStone(ctx, cx, cursorY, stoneW, sh, rot, seed + i * 17, i);
+        cursorY -= sh - stoneH * 0.06;
       }
-      // Rzeźbiona twarz.
-      if (postH > 9) {
-        const fy = postTop + postH * 0.2;
-        const fr = Math.min(topW * 0.78, postH * 0.12);
-        ctx.fillStyle = "rgba(32, 17, 7, 0.42)";
-        ctx.beginPath();
-        ctx.ellipse(x, fy, fr * 1.05, fr * 1.2, 0, 0, TAU);
-        ctx.fill();
-        ctx.fillStyle = "rgba(24, 12, 5, 0.85)";
-        for (const side of [-1, 1]) {
-          ctx.beginPath();
-          ctx.ellipse(x + side * fr * 0.42, fy - fr * 0.1, fr * 0.17, fr * 0.11, 0, 0, TAU);
-          ctx.fill();
-        }
-        ctx.strokeStyle = "rgba(36, 19, 8, 0.75)";
-        ctx.lineWidth = 0.55;
-        ctx.beginPath();
-        ctx.moveTo(x - fr * 0.5, fy + fr * 0.42);
-        ctx.quadraticCurveTo(x, fy + fr * 0.66, x + fr * 0.5, fy + fr * 0.42);
-        ctx.stroke();
-        // Znak słońca pod twarzą.
-        ctx.strokeStyle = "rgba(255, 214, 138, 0.42)";
-        ctx.lineWidth = 0.55;
-        const sy = postTop + postH * 0.48;
-        ctx.beginPath();
-        ctx.arc(x, sy, fr * 0.34, 0, TAU);
-        ctx.stroke();
-        for (let i = 0; i < 6; i++) {
-          const a = (i / 6) * TAU;
-          ctx.beginPath();
-          ctx.moveTo(x + Math.cos(a) * fr * 0.46, sy + Math.sin(a) * fr * 0.46);
-          ctx.lineTo(x + Math.cos(a) * fr * 0.7, sy + Math.sin(a) * fr * 0.7);
-          ctx.stroke();
-        }
-      }
-      // Daszek z dwóch desek.
-      ctx.fillStyle = "#4a2c18";
-      ctx.beginPath();
-      ctx.moveTo(x - capW, postTop + capH * 0.32);
-      ctx.lineTo(x, postTop - capH);
-      ctx.lineTo(x + capW, postTop + capH * 0.32);
-      ctx.lineTo(x, postTop + capH * 0.02);
-      ctx.closePath();
-      ctx.fill();
-      ctx.fillStyle = "rgba(255, 226, 174, 0.18)";
-      ctx.beginPath();
-      ctx.moveTo(x - capW * 0.92, postTop + capH * 0.24);
-      ctx.lineTo(x, postTop - capH * 0.9);
-      ctx.lineTo(x, postTop - capH * 0.1);
-      ctx.lineTo(x - capW * 0.28, postTop + capH * 0.14);
-      ctx.closePath();
-      ctx.fill();
-      // Czerwona wstążka ofiarna.
-      const ribbon = Math.sin(seed) * 1.2;
-      ctx.fillStyle = "rgba(168, 58, 44, 0.85)";
-      ctx.beginPath();
-      ctx.moveTo(x + topW * 0.6, postTop + capH * 0.28);
-      ctx.quadraticCurveTo(
-        x + topW * 1.2 + ribbon,
-        postTop + postH * 0.2,
-        x + topW * 0.9 + ribbon,
-        postTop + postH * 0.34
+
+      // Zwornik na szczycie — nieco większy, lekko przekrzywiony kamień.
+      const topW2 = Math.max(1.8, bottomW * 0.52);
+      const topH2 = Math.max(2, stoneH * 0.92);
+      this._drawCairnStone(
+        ctx,
+        x + (hash2(seed, 97, 5) * 2 - 1) * 0.7,
+        cursorY + topH2 * 0.12,
+        topW2,
+        topH2,
+        (hash2(seed, 97, 7) * 2 - 1) * 0.1,
+        seed + 501,
+        stoneCount
       );
-      ctx.lineTo(x + topW * 0.72 + ribbon, postTop + postH * 0.33);
-      ctx.quadraticCurveTo(
-        x + topW * 0.96,
-        postTop + postH * 0.2,
-        x + topW * 0.48,
-        postTop + capH * 0.3
+    }
+
+    ctx.restore();
+  }
+
+  /** Pojedynczy, nieregularny kamień z usypanego kopca pamięci. */
+  _drawCairnStone(ctx, cx, baseY, halfW, stoneH, rot, seed, index) {
+    // Kontaktowy cień pod kamieniem, zawsze poziomy.
+    ctx.fillStyle = "rgba(10, 12, 10, 0.24)";
+    ctx.beginPath();
+    ctx.ellipse(
+      cx + halfW * 0.16,
+      baseY + Math.max(0.5, stoneH * 0.06),
+      halfW * 1.05,
+      Math.max(0.6, stoneH * 0.14),
+      0,
+      0,
+      TAU
+    );
+    ctx.fill();
+
+    const points = [
+      [-halfW * 1.02, -stoneH * 0.05],
+      [-halfW * 0.95, -stoneH * 0.45],
+      [-halfW * 0.58, -stoneH * 0.83],
+      [-halfW * 0.08, -stoneH * 0.98],
+      [halfW * 0.5, -stoneH * 0.88],
+      [halfW * 0.96, -stoneH * 0.5],
+      [halfW * 1.02, -stoneH * 0.06],
+      [halfW * 0.58, stoneH * 0.04],
+      [-halfW * 0.52, stoneH * 0.03],
+    ];
+    for (let i = 0; i < points.length; i++) {
+      points[i][0] += (hash2(seed, i, 11) - 0.5) * halfW * 0.18;
+      points[i][1] += (hash2(seed, i, 17) - 0.5) * stoneH * 0.14;
+    }
+
+    ctx.save();
+    ctx.translate(cx, baseY);
+    ctx.rotate(rot);
+
+    const light = index % 2 === 0 ? "#a89e8e" : "#978d7f";
+    const mid = index % 3 === 0 ? "#837a6d" : "#8b8274";
+    const dark = index % 2 === 0 ? "#625b51" : "#6d665b";
+
+    const grad = ctx.createLinearGradient(-halfW, -stoneH, halfW, 0);
+    grad.addColorStop(0, light);
+    grad.addColorStop(0.46, mid);
+    grad.addColorStop(1, dark);
+    ctx.fillStyle = grad;
+    ctx.lineJoin = "round";
+    ctx.lineWidth = 0.7;
+    ctx.strokeStyle = mid;
+    ctx.beginPath();
+    ctx.moveTo(points[0][0], points[0][1]);
+    for (let i = 1; i < points.length; i++) {
+      ctx.lineTo(points[i][0], points[i][1]);
+    }
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    // Detale tylko wewnątrz obrysu kamienia.
+    ctx.save();
+    ctx.clip();
+
+    const topLight = ctx.createLinearGradient(0, -stoneH, 0, -stoneH * 0.25);
+    topLight.addColorStop(0, "rgba(238, 230, 210, 0.3)");
+    topLight.addColorStop(1, "rgba(238, 230, 210, 0)");
+    ctx.fillStyle = topLight;
+    ctx.fillRect(-halfW * 1.25, -stoneH * 1.15, halfW * 2.5, stoneH * 0.8);
+
+    const sideShade = ctx.createLinearGradient(halfW * 0.15, -stoneH, halfW, 0);
+    sideShade.addColorStop(0, "rgba(30, 30, 25, 0)");
+    sideShade.addColorStop(1, "rgba(30, 30, 25, 0.26)");
+    ctx.fillStyle = sideShade;
+    ctx.fillRect(halfW * 0.15, -stoneH * 1.1, halfW, stoneH * 1.2);
+
+    // Mech i porosty na starszych kamieniach.
+    for (let i = 0; i < 3; i++) {
+      const moss = hash2(seed, i, 23);
+      if (moss < 0.42) continue;
+      ctx.fillStyle = rgba("#788752", 0.12 + moss * 0.13);
+      ctx.beginPath();
+      ctx.ellipse(
+        (hash2(seed, i, 29) - 0.5) * halfW * 1.25,
+        -stoneH * (0.14 + hash2(seed, i, 31) * 0.52),
+        halfW * (0.12 + hash2(seed, i, 37) * 0.14),
+        stoneH * (0.08 + hash2(seed, i, 41) * 0.1),
+        hash2(seed, i, 43) * 0.8,
+        0,
+        TAU
       );
-      ctx.closePath();
       ctx.fill();
     }
+
+    // Delikatne pęknięcie i jaśniejszy odprysk.
+    if (hash2(seed, 7, 47) > 0.35) {
+      ctx.strokeStyle = "rgba(44, 42, 36, 0.36)";
+      ctx.lineWidth = 0.45;
+      const crackX = (hash2(seed, 8, 53) - 0.5) * halfW * 1.1;
+      const crackY = -stoneH * (0.25 + hash2(seed, 9, 59) * 0.42);
+      ctx.beginPath();
+      ctx.moveTo(crackX, crackY);
+      ctx.lineTo(crackX + halfW * 0.2, crackY + stoneH * 0.18);
+      ctx.lineTo(crackX + halfW * 0.04, crackY + stoneH * 0.36);
+      ctx.stroke();
+    }
+    ctx.fillStyle = "rgba(242, 234, 215, 0.11)";
+    ctx.beginPath();
+    ctx.ellipse(
+      -halfW * 0.34,
+      -stoneH * 0.63,
+      halfW * 0.22,
+      stoneH * 0.13,
+      -0.2,
+      0,
+      TAU
+    );
+    ctx.fill();
+
+    ctx.restore();
+
+    // Jasna górna krawędź i ciemniejszy spód.
+    ctx.strokeStyle = "rgba(238, 228, 208, 0.22)";
+    ctx.lineWidth = 0.55;
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.moveTo(points[1][0], points[1][1]);
+    ctx.quadraticCurveTo(
+      points[2][0],
+      points[2][1],
+      points[3][0],
+      points[3][1]
+    );
+    ctx.stroke();
+    ctx.strokeStyle = "rgba(20, 22, 18, 0.32)";
+    ctx.lineWidth = 0.7;
+    ctx.beginPath();
+    ctx.moveTo(points[6][0], points[6][1]);
+    ctx.lineTo(points[7][0], points[7][1]);
+    ctx.lineTo(points[8][0], points[8][1]);
+    ctx.stroke();
 
     ctx.restore();
   }
@@ -1928,6 +2221,99 @@ export class Renderer {
     }
   }
 
+  _drawGranaries(ctx, game, view) {
+    const granaries = game.granaries;
+    if (!granaries) return;
+
+    for (const site of granaries.sites) {
+      if (site.x < view.left - 80 || site.x > view.right + 80) continue;
+      if (site.y < view.top - 100 || site.y > view.bottom + 40) continue;
+      this._drawHouseSite(ctx, site, game);
+    }
+
+    for (const granary of granaries.granaries) {
+      if (granary.x < view.left - 80 || granary.x > view.right + 80) continue;
+      if (granary.y < view.top - 100 || granary.y > view.bottom + 40) continue;
+      this._drawHouse(ctx, granary, game);
+      this._drawHaySheaves(ctx, granary);
+    }
+  }
+
+  /**
+   * Snopki przed spichlerzem pokazują, ile ziarna w nim leży: jeden przy
+   * zapełnieniu do połowy, dwa gdy jest go więcej.
+   */
+  _drawHaySheaves(ctx, granary) {
+    if (granary.burning || granary.destroyed) return;
+    const capacity = granary.capacity ?? granary.w ?? 1;
+    const fill = clamp((granary.grain || 0) / Math.max(1, capacity), 0, 1);
+    if (fill <= 0.02) return;
+
+    const count = fill > 0.5 ? 2 : 1;
+    const w = granary.w ?? 58;
+    const baseY = granary.y + 1.6;
+
+    for (let i = 0; i < count; i++) {
+      const sx =
+        count === 1
+          ? granary.x + w * 0.3
+          : granary.x + (i === 0 ? -1 : 1) * w * 0.27;
+      const seed = hash2(i + 1, granary.id ?? 1, 61);
+      const h = 11 + seed * 3.5;
+      const bw = 6.4;
+
+      // Cień snopka.
+      ctx.fillStyle = "rgba(20, 16, 10, 0.2)";
+      ctx.beginPath();
+      ctx.ellipse(sx, baseY + 1.4, bw * 0.8, 1.9, 0, 0, TAU);
+      ctx.fill();
+
+      // Związany snopek słomy.
+      const grad = ctx.createLinearGradient(0, baseY - h, 0, baseY);
+      grad.addColorStop(0, "#e9cd76");
+      grad.addColorStop(0.55, "#cfa848");
+      grad.addColorStop(1, "#8d6728");
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.moveTo(sx - bw * 0.4, baseY);
+      ctx.quadraticCurveTo(sx - bw * 0.72, baseY - h * 0.55, sx - bw * 0.2, baseY - h);
+      ctx.quadraticCurveTo(sx, baseY - h * 1.08, sx + bw * 0.2, baseY - h);
+      ctx.quadraticCurveTo(sx + bw * 0.72, baseY - h * 0.55, sx + bw * 0.4, baseY);
+      ctx.closePath();
+      ctx.fill();
+
+      // Źdźbła.
+      ctx.strokeStyle = "rgba(255, 236, 168, 0.36)";
+      ctx.lineWidth = 0.55;
+      for (let s = 0; s < 4; s++) {
+        const t = (s + 1) / 5;
+        ctx.beginPath();
+        ctx.moveTo(sx + (t - 0.5) * bw * 0.6, baseY - 1);
+        ctx.lineTo(sx + (t - 0.5) * bw * 0.34, baseY - h * 0.92);
+        ctx.stroke();
+      }
+
+      // Powrósło wokół snopka.
+      ctx.strokeStyle = "#6f4424";
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.moveTo(sx - bw * 0.49, baseY - h * 0.36);
+      ctx.lineTo(sx + bw * 0.49, baseY - h * 0.34);
+      ctx.stroke();
+
+      // Rozwichrzony czubek.
+      ctx.strokeStyle = "rgba(244, 219, 140, 0.75)";
+      ctx.lineWidth = 0.6;
+      for (let s = 0; s < 3; s++) {
+        const a = (s - 1) * 0.5;
+        ctx.beginPath();
+        ctx.moveTo(sx + a * 1.6, baseY - h);
+        ctx.lineTo(sx + a * 3.1, baseY - h - 2.4);
+        ctx.stroke();
+      }
+    }
+  }
+
   _drawHouse(ctx, house, game) {
     const housingTheme = game.config.theme.house || {};
     const wallPalette = housingTheme.wall || ["#8a5a34", "#7a4d2c", "#96663c"];
@@ -1938,6 +2324,7 @@ export class Renderer {
     const w = house.w ?? 46;
     const wallH = house.wallH ?? 27;
     const roofH = house.roofH ?? 16;
+    const isGranary = house.kind === "granary";
     const seed = Math.floor(house.seed ?? 1);
     const burn = house.burning
       ? clamp(
@@ -1946,7 +2333,8 @@ export class Renderer {
           1
         )
       : 0;
-    const washMax = game.config.housing?.rainWashSeconds ?? 9;
+    const washMax =
+      house.washMax ?? game.config.housing?.rainWashSeconds ?? 9;
     const wash = house.wash ? clamp(house.wash / washMax, 0, 1) : 0;
     const wall = mixColor(
       mixColor(
@@ -2212,9 +2600,11 @@ export class Renderer {
     }
 
     // Drzwi z desek, z drewnianą futryną i kutym uchwytem.
-    const doorW = Math.max(7, w * 0.22);
-    const doorH = Math.min(wallH * 0.86, 19);
-    const doorX = x - half * 0.42 - doorW * 0.5;
+    const doorW = isGranary ? Math.max(11, w * 0.34) : Math.max(7, w * 0.22);
+    const doorH = Math.min(wallH * 0.86, isGranary ? 23 : 19);
+    const doorX = isGranary
+      ? x - doorW * 0.5
+      : x - half * 0.42 - doorW * 0.5;
     const doorFrame = mixColor(trim, "#5c3b24", 0.42);
     ctx.fillStyle = "#2e1c11";
     ctx.fillRect(doorX - 1.8, y - doorH - 1.8, doorW + 3.6, doorH + 1.8);
@@ -2294,7 +2684,9 @@ export class Renderer {
       ctx.fill();
     }
 
-    // Okno z okiennicami: nocą ciepło bije na zewnątrz.
+    // Okno z okiennicami: nocą ciepło bije na zewnątrz. Spichlerz jest
+    // drewniany i bez okien — ma tylko drzwi.
+    if (!isGranary) {
     const winW = Math.max(6.5, w * 0.19);
     const winH = Math.min(wallH * 0.42, 11.5);
     const winX = x + half * 0.32 - winW * 0.5;
@@ -2373,6 +2765,7 @@ export class Renderer {
         ctx.lineTo(fx, boxY - 1.4);
         ctx.stroke();
       }
+    }
     }
 
     // Deski i słupki przy ścianie.
@@ -3277,10 +3670,294 @@ export class Renderer {
       if (p.y < view.top - 60 || p.y > view.bottom + 40) continue;
       order.push(p);
     }
-    order.sort((a, b) => a.y - b.y || a.id - b.id);
+    // Wilki rysujemy razem z ludźmi, w tej samej kolejności głębi.
+    for (const wolf of game.wolves?.wolves || []) {
+      if (wolf.fade <= 0.01) continue;
+      if (wolf.x < view.left - 40 || wolf.x > view.right + 40) continue;
+      if (wolf.y < view.top - 60 || wolf.y > view.bottom + 40) continue;
+      order.push(wolf);
+    }
+    // Stabilne sortowanie głębi: osoby o niemal identycznym y trafiają do
+    // jednego pasma, a w obrębie pasma decyduje id. Bez tego drobne drgania
+    // y (fizyka, kolizje) powodowały miganie kolejności rysowania.
+    order.sort((a, b) => {
+      const ba = Math.round(a.y / 3);
+      const bb = Math.round(b.y / 3);
+      return ba - bb || (a.isWolf ? 1 : 0) - (b.isWolf ? 1 : 0) || a.id - b.id;
+    });
     for (const p of order) {
+      if (p.isWolf) {
+        this._drawWolf(ctx, p, game);
+        continue;
+      }
       this._drawPerson(ctx, p, game);
       if (p.hunger >= 0.9) this._drawHungerMark(ctx, p);
+    }
+  }
+
+  /** Wilk z watahy: stojący, leżący (wiatr/śmierć) albo tonący. */
+  _drawWolf(ctx, wolf, game) {
+    const cfg = game.config.wolves || {};
+    const colors = cfg.colors || {};
+    const fur = colors.fur || "#5d5449";
+    const furDark = colors.furDark || "#342e28";
+    const furLight = colors.furLight || "#8d8272";
+    const belly = colors.belly || "#bcb09b";
+    const eyeColor = colors.eye || "#ffc45e";
+
+    const night = 1 - this._daylight(game.hour);
+    const h = wolf.h || 15;
+    const s = h / 15;
+    const dead = !wolf.alive;
+    const lying = dead || wolf.state === "lie" || wolf.state === "drown";
+    const drowning = !dead && wolf.state === "drown";
+    const walking = !lying && Math.abs(wolf.vx || 0) > 2;
+    const phase = (wolf.walkTime || 0) * 8 + wolf.id * 0.7;
+    const bob = lying
+      ? 0
+      : walking
+        ? Math.abs(Math.sin(phase)) * 1.1 * s
+        : Math.sin(this.time * 2 + wolf.id) * 0.22 * s;
+    const feetY = wolf.y + bob;
+    const facing = wolf.facing || 1;
+    const fade = dead ? Math.max(0, 1 - Math.max(0, wolf.deathTimer - (cfg.corpseSeconds ?? 7)) / 1.4) : 1;
+    const alpha = Math.min(wolf.fade ?? 1, fade);
+    if (alpha <= 0.01) return;
+
+    ctx.save();
+    ctx.globalAlpha = alpha;
+
+    // Cień pod zwierzęciem.
+    ctx.fillStyle = "rgba(10, 14, 10, 0.26)";
+    ctx.beginPath();
+    ctx.ellipse(
+      wolf.x + (lying ? 0 : facing * 1.5),
+      wolf.y + 0.6,
+      (lying ? 15 : 12) * s,
+      2.3 * s,
+      0,
+      0,
+      TAU
+    );
+    ctx.fill();
+
+    ctx.translate(wolf.x, feetY);
+    ctx.scale(facing, 1);
+
+    const tailSway = lying
+      ? 0
+      : Math.sin(this.time * 2.4 + wolf.id) * 2.2 * s;
+    const bodyY = lying ? -3.1 * s : -7.6 * s;
+    const bodyH = lying ? 3.3 * s : 5.1 * s;
+    const bodyLen = lying ? 11.5 * s : 12.2 * s;
+
+    // Ogon — rysowany pod ciałem, żeby nie zasłaniał grzbietu.
+    const tailGrad = ctx.createLinearGradient(-18 * s, -12 * s, -8 * s, -5 * s);
+    tailGrad.addColorStop(0, furDark);
+    tailGrad.addColorStop(1, fur);
+    ctx.fillStyle = tailGrad;
+    ctx.beginPath();
+    ctx.moveTo(-8.5 * s, bodyY + 0.6 * s);
+    ctx.quadraticCurveTo(
+      -15 * s,
+      bodyY - 1.5 * s + tailSway,
+      -18.5 * s,
+      bodyY - (lying ? 1.6 : 5.2) * s + tailSway
+    );
+    ctx.quadraticCurveTo(
+      -14.2 * s,
+      bodyY - 0.6 * s + tailSway * 0.7,
+      -7.8 * s,
+      bodyY + 1.8 * s
+    );
+    ctx.closePath();
+    ctx.fill();
+
+    // Nogi: cztery cienkie kończyny z lekkim zamachem kroku.
+    if (!lying) {
+      ctx.strokeStyle = furDark;
+      ctx.lineWidth = 1.9 * s;
+      ctx.lineCap = "round";
+      const swing = walking ? Math.sin(phase) * 2.4 * s : 0;
+      const swing2 = walking ? Math.sin(phase + Math.PI) * 2.4 * s : 0;
+      const legs = [
+        [-5.6 * s, swing, -6.4 * s],
+        [-3.9 * s, swing2, -4.6 * s],
+        [4.2 * s, swing2, 3.4 * s],
+        [5.9 * s, swing, 5.1 * s],
+      ];
+      for (const [fromX, offset, toX] of legs) {
+        ctx.beginPath();
+        ctx.moveTo(fromX, bodyY + 1.2 * s);
+        ctx.quadraticCurveTo(
+          (fromX + toX) * 0.5 + offset * 0.3,
+          -3.4 * s,
+          toX + offset,
+          0
+        );
+        ctx.stroke();
+      }
+      // Łapy.
+      ctx.fillStyle = furDark;
+      for (const [, offset, toX] of legs) {
+        ctx.beginPath();
+        ctx.ellipse(toX + offset, -0.4 * s, 1.2 * s, 0.55 * s, 0, 0, TAU);
+        ctx.fill();
+      }
+    } else {
+      // Podkulone łapy przy leżeniu.
+      ctx.fillStyle = furDark;
+      for (const lx of [-5 * s, 4.4 * s]) {
+        ctx.beginPath();
+        ctx.ellipse(lx, bodyY + bodyH * 0.72, 2.1 * s, 0.72 * s, 0, 0, TAU);
+        ctx.fill();
+      }
+    }
+
+    // Tułów z ciemniejszym grzbietem i jaśniejszym brzuchem.
+    const bodyGrad = ctx.createLinearGradient(0, bodyY - bodyH, 0, bodyY + bodyH);
+    bodyGrad.addColorStop(0, furDark);
+    bodyGrad.addColorStop(0.34, fur);
+    bodyGrad.addColorStop(0.72, furLight);
+    bodyGrad.addColorStop(1, belly);
+    ctx.fillStyle = bodyGrad;
+    ctx.beginPath();
+    ctx.ellipse(-0.6 * s, bodyY, bodyLen, bodyH, 0, 0, TAU);
+    ctx.fill();
+    ctx.strokeStyle = "rgba(30, 26, 21, 0.3)";
+    ctx.lineWidth = 0.55 * s;
+    ctx.stroke();
+
+    // Kępa jaśniejszego futra na karku.
+    ctx.fillStyle = "rgba(218, 206, 184, 0.2)";
+    ctx.beginPath();
+    ctx.ellipse(4.2 * s, bodyY - bodyH * 0.32, 4.2 * s, bodyH * 0.38, -0.25, 0, TAU);
+    ctx.fill();
+
+    // Głowa, wysunięta do przodu i lekko uniesiona (albo opuszczona przy śmierci).
+    const headX = lying ? 8.2 * s : 9.6 * s;
+    const headY = lying ? bodyY - (dead ? 0.2 : 1.1) * s : bodyY - 3.4 * s;
+    const headR = (dead ? 2.9 : 3.5) * s;
+    const headGrad = ctx.createLinearGradient(headX, headY - headR, headX, headY + headR);
+    headGrad.addColorStop(0, fur);
+    headGrad.addColorStop(0.7, furLight);
+    headGrad.addColorStop(1, belly);
+
+    // Szyja łącząca tułów z głową.
+    ctx.fillStyle = fur;
+    ctx.beginPath();
+    ctx.moveTo(3.4 * s, bodyY - bodyH * 0.55);
+    ctx.quadraticCurveTo(7.2 * s, headY - 1.4 * s, headX, headY);
+    ctx.lineTo(headX - 0.5 * s, headY + 2.4 * s);
+    ctx.quadraticCurveTo(6.1 * s, bodyY + 0.6 * s, 3 * s, bodyY + bodyH * 0.55);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.fillStyle = headGrad;
+    ctx.beginPath();
+    ctx.ellipse(headX, headY, headR * 1.12, headR, 0.1, 0, TAU);
+    ctx.fill();
+
+    // Wydłużony pysk.
+    ctx.fillStyle = furLight;
+    ctx.beginPath();
+    ctx.moveTo(headX + headR * 0.3, headY - headR * 0.38);
+    ctx.quadraticCurveTo(
+      headX + headR * 2.1,
+      headY - headR * 0.2,
+      headX + headR * 2.15,
+      headY + headR * 0.28
+    );
+    ctx.quadraticCurveTo(
+      headX + headR * 1.4,
+      headY + headR * 0.78,
+      headX + headR * 0.2,
+      headY + headR * 0.66
+    );
+    ctx.closePath();
+    ctx.fill();
+    // Ciemna trufla.
+    ctx.fillStyle = "#26201b";
+    ctx.beginPath();
+    ctx.ellipse(headX + headR * 2.02, headY + headR * 0.18, 0.9 * s, 0.66 * s, 0, 0, TAU);
+    ctx.fill();
+
+    // Spiczaste uszy.
+    ctx.fillStyle = furDark;
+    const earBack = Math.sin(this.time * 1.7 + wolf.id) * 0.7 * s;
+    ctx.beginPath();
+    ctx.moveTo(headX - 1.6 * s, headY - headR * 0.72);
+    ctx.lineTo(headX - 0.2 * s + earBack, headY - headR * 2.45);
+    ctx.lineTo(headX + 1.5 * s, headY - headR * 0.82);
+    ctx.closePath();
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(headX + 1.2 * s, headY - headR * 0.82);
+    ctx.lineTo(headX + 2.6 * s - earBack, headY - headR * 2.25);
+    ctx.lineTo(headX + 3.5 * s, headY - headR * 0.5);
+    ctx.closePath();
+    ctx.fill();
+    // Jasne wnętrze uszu.
+    ctx.fillStyle = "rgba(196, 138, 112, 0.35)";
+    ctx.beginPath();
+    ctx.moveTo(headX - 1.1 * s, headY - headR * 0.85);
+    ctx.lineTo(headX - 0.15 * s + earBack, headY - headR * 2.05);
+    ctx.lineTo(headX + 0.9 * s, headY - headR * 0.88);
+    ctx.closePath();
+    ctx.fill();
+
+    // Oczy. U martwego wilka oko jest zamknięte, u żywego świeci w ciemności.
+    if (dead) {
+      ctx.strokeStyle = "rgba(24, 20, 16, 0.75)";
+      ctx.lineWidth = 0.7 * s;
+      ctx.beginPath();
+      ctx.moveTo(headX + 0.6 * s, headY - 0.7 * s);
+      ctx.lineTo(headX + 2.1 * s, headY - 0.55 * s);
+      ctx.stroke();
+    } else {
+      if (night > 0.35) {
+        ctx.save();
+        ctx.globalCompositeOperation = "lighter";
+        const glow = ctx.createRadialGradient(
+          headX + 1.5 * s,
+          headY - 0.62 * s,
+          0.2 * s,
+          headX + 1.5 * s,
+          headY - 0.62 * s,
+          3.2 * s
+        );
+        glow.addColorStop(0, `rgba(255, 196, 94, ${0.3 * night})`);
+        glow.addColorStop(1, "rgba(255, 196, 94, 0)");
+        ctx.fillStyle = glow;
+        ctx.beginPath();
+        ctx.arc(headX + 1.5 * s, headY - 0.62 * s, 3.2 * s, 0, TAU);
+        ctx.fill();
+        ctx.restore();
+      }
+      ctx.fillStyle = eyeColor;
+      ctx.beginPath();
+      ctx.ellipse(headX + 1.5 * s, headY - 0.62 * s, 0.85 * s, 0.62 * s, -0.18, 0, TAU);
+      ctx.fill();
+      ctx.fillStyle = "rgba(255, 255, 240, 0.7)";
+      ctx.beginPath();
+      ctx.arc(headX + 1.72 * s, headY - 0.82 * s, 0.24 * s, 0, TAU);
+      ctx.fill();
+    }
+
+    ctx.restore();
+
+    // Tonący wilk zostawia na wodzie kręgi i drobne rozbryzgi.
+    if (drowning) {
+      ctx.save();
+      ctx.strokeStyle = `rgba(198, 247, 242, ${0.24 + 0.18 * Math.sin(this.time * 7 + wolf.id)})`;
+      ctx.lineWidth = 0.8;
+      for (let i = 0; i < 2; i++) {
+        const r = 4 + i * 4 + ((this.time * 9 + wolf.id * 3) % 6);
+        ctx.beginPath();
+        ctx.ellipse(wolf.x, wolf.y - 1, r * 1.5, r * 0.35, 0, 0, TAU);
+        ctx.stroke();
+      }
+      ctx.restore();
     }
   }
 

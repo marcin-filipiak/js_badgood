@@ -1,4 +1,4 @@
-import { clamp } from "./utils.js?v=20261046-1";
+import { clamp } from "./utils.js?v=20261046-5";
 
 export class Camera {
   constructor(game) {

@@ -1139,3 +1139,112 @@ html, body {
   .power-card { min-height: 46px; padding: 6px 8px; }
   .toasts { bottom: calc(108px + env(safe-area-inset-bottom)); }
 }
+
+/* ---------- desktop: poziomy panel mocy na całą szerokość ---------- */
+
+/* Na komputerze panel zajmuje całą szerokość dołu ekranu: nagłówek z Lush
+   rozpina się nad rzędem czterech kart mocy, a pod nimi zostaje miejsce na
+   status i podpowiedź. Układ dotykowy (telefony, tablety) pozostaje bez zmian. */
+@media (min-width: 901px) and (pointer: fine) {
+  .power-dock {
+    align-self: stretch;
+    width: 100%;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "head head"
+      "list list"
+      "status hint";
+    column-gap: 20px;
+    row-gap: 9px;
+    padding: 11px 16px 10px;
+  }
+
+  .dock-head {
+    grid-area: head;
+    margin: 0;
+    padding-bottom: 8px;
+    gap: 16px;
+    border-bottom: 1px solid rgba(255, 228, 190, 0.1);
+  }
+
+  .dock-title {
+    flex: 0 0 auto;
+    font-size: 11px;
+    letter-spacing: 0.22em;
+    color: #cbb695;
+  }
+
+  .energy-wrap {
+    flex: 1 1 auto;
+    min-width: 0;
+    gap: 10px;
+  }
+
+  .energy-track { height: 7px; }
+
+  .power-list {
+    grid-area: list;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .power-card {
+    min-height: 64px;
+    padding: 9px 12px;
+    gap: 11px;
+    border-radius: 12px;
+  }
+
+  .power-desc {
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+  }
+
+  .dock-status {
+    grid-area: status;
+    margin: 0;
+    min-height: 0;
+  }
+
+  .dock-hint {
+    grid-area: hint;
+    margin: 0;
+    align-self: center;
+    text-align: right;
+    white-space: nowrap;
+  }
+}
+
+/* Szeroki pulpit: tytuł i Lush stoją po lewej, karty mocy rozkładają się
+   w jednym rzędzie po prawej — panel czyta się jak poziomy pasek mocy. */
+@media (min-width: 1200px) and (pointer: fine) {
+  .power-dock {
+    grid-template-columns: minmax(240px, 300px) minmax(0, 1fr);
+    grid-template-areas:
+      "head list"
+      "status hint";
+    column-gap: 22px;
+    row-gap: 8px;
+    align-items: center;
+  }
+
+  .dock-head {
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: center;
+    gap: 7px;
+    padding: 0 22px 0 0;
+    border-right: 1px solid rgba(255, 228, 190, 0.1);
+    border-bottom: 0;
+  }
+
+  .energy-wrap { width: 100%; }
+
+  .dock-status { align-self: start; }
+}
+
+/* Na węższym pulpicie podpowiedź ustępuje miejsca statusowi mocy. */
+@media (min-width: 901px) and (max-width: 1099px) and (pointer: fine) {
+  .dock-hint { display: none; }
+}

@@ -1,5 +1,5 @@
-import { loadGameData } from "./config.js?v=20261046-1";
-import { Game } from "./game.js?v=20261046-1";
+import { loadGameData } from "./config.js?v=20261046-5";
+import { Game } from "./game.js?v=20261046-9";
 
 // Błędy poza pętlą gry (np. w obsłudze zdarzeń) nie mogą kończyć się tylko
 // wpisem w konsoli. Pokazujemy ten sam pasek, co dla błędów klatek.

@@ -1,4 +1,4 @@
-import { TAU, chance, clamp, distance, rand } from "./utils.js?v=20261046-1";
+import { TAU, chance, clamp, distance, rand } from "./utils.js?v=20261046-5";
 
 /**
  * Domy i rodziny.
@@ -101,7 +101,7 @@ export class Housing {
   /** Czy dana osoba może w ogóle zacząć budowę? */
   canStartProject(person) {
     if (!this.enabled || !person.alive) return false;
-    if (person.homeId != null || person.homeBuild) return false;
+    if (person.homeId != null || person.homeBuild || person.granaryBuild) return false;
     if (person.buildCooldown > 0) return false;
     if (person.isNight) return false;
     if (person.state === "flee" || person.state === "drown" || person.state === "sleep") {

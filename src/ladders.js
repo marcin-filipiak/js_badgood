@@ -1,4 +1,4 @@
-import { chance, rand, TAU } from "./utils.js?v=20261046-1";
+import { chance, rand, TAU } from "./utils.js?v=20261046-5";
 
 /**
  * Drabiny.
@@ -72,7 +72,7 @@ export class Ladders {
    */
   tryStart(person, climb) {
     if (!this.enabled || !person || !person.alive) return false;
-    if (person.ladderBuild || person.homeBuild || person._climb) return false;
+    if (person.ladderBuild || person.homeBuild || person.granaryBuild || person._climb) return false;
 
     const plan = this.planFromClimb(person, climb);
     if (!plan) return false;
@@ -526,6 +526,24 @@ export class Ladders {
       spread: TAU,
     });
     return true;
+  }
+
+  /** Piorun (i inne źródła ognia z oddali) mogą podpalić drabiny w promieniu uderzenia. */
+  igniteAt(x, y, radius, opts = {}) {
+    let count = 0;
+    const ts = this.map.tileSize;
+    const chanceToIgnite =
+      opts.chance ?? this.config.igniteChance ?? 0.85;
+
+    for (const ladder of this.ladders) {
+      if (ladder.burning) continue;
+      if (Math.abs(ladder.x - x) > radius + ts * 0.5) continue;
+      if (Math.abs(ladder.baseY - y) > ts * 4) continue;
+      if (!chance(chanceToIgnite)) continue;
+      this._igniteLadder(ladder);
+      count++;
+    }
+    return count;
   }
 
   _updateLadderFire(dt) {

@@ -1,11 +1,11 @@
-import { chance, clamp, distance, rand } from "./utils.js?v=20261046-1";
+import { chance, clamp, distance, rand } from "./utils.js?v=20261046-5";
 
 /**
  * Miejsca pamięci po tragediach.
  *
  * Gdy w krótkim czasie i w jednym miejscu ginie kilka osób, ocalali czekają,
- * aż opadnie panika, schodzą się w tym miejscu, a potem stawiają mały kamienny
- * obelisk. Obelisk zostaje w świecie na zawsze i oznacza to miejsce.
+ * aż opadnie panika, schodzą się w tym miejscu, a potem układają stertę kamieni
+ * jeden na drugim. Miejsce pamięci zostaje w świecie na zawsze i oznacza to miejsce.
  */
 export class Memorials {
   constructor(game) {
@@ -236,6 +236,7 @@ export class Memorials {
       w: site.obeliskW,
       seed: rand(0, 1000),
       deaths: site.deaths,
+      siteId: site.id,
     });
     this.game.effects.burst(
       site.x,
@@ -250,6 +251,28 @@ export class Memorials {
       size: 2,
       gravity: 40,
     });
+  }
+
+  /** Trzęsienie ziemi niszczy miejsca pamięci w zasięgu wstrząsu. */
+  destroyNear(x, y, radius) {
+    let destroyed = 0;
+    for (let i = this.obelisks.length - 1; i >= 0; i--) {
+      const obelisk = this.obelisks[i];
+      if (Math.abs(obelisk.x - x) <= radius && Math.abs(obelisk.y - y) <= radius) {
+        this.obelisks.splice(i, 1);
+        destroyed++;
+        if (obelisk.siteId != null) {
+          const site = this.byId.get(obelisk.siteId);
+          if (site) {
+            this._releaseAll(site);
+            this.byId.delete(site.id);
+            const sIdx = this.sites.indexOf(site);
+            if (sIdx >= 0) this.sites.splice(sIdx, 1);
+          }
+        }
+      }
+    }
+    return destroyed;
   }
 
   _removeSite(site) {

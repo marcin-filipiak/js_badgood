@@ -1,4 +1,4 @@
-import { TAU, chance, clamp, distance, rand } from "./utils.js?v=20261046-1";
+import { TAU, chance, clamp, distance, rand } from "./utils.js?v=20261046-5";
 
 /**
  * Uprawy: wioska zakłada pola zbóż, sieje, zbiera plony i gromadzi ziarno.
@@ -23,11 +23,30 @@ export class Crops {
     this.warnedEmpty = false;
     this._toastCooldown = 0;
     this._plotTimer = 0;
-    this.stats = { harvests: 0, burned: 0, rotted: 0 };
+    this.stats = { harvests: 0, burned: 0, rotted: 0, overripe: 0 };
   }
 
   get enabled() {
     return this.config.enabled !== false;
+  }
+
+  /**
+   * Ile ziarna zmieści się w wiosce. Bez spichlerza obowiązuje tylko norma
+   * początkowa, a każdy gotowy spichlerz podnosi limit. Place budowy nie
+   * zwiększają pojemności, dopóki budynek nie stanie.
+   */
+  get storageLimit() {
+    const granaryLimit = this.game.granaries?.storageLimit;
+    if (granaryLimit == null) return this.foodMax;
+    return Math.max(0, Math.min(this.foodMax, granaryLimit));
+  }
+
+  get storageSpace() {
+    return Math.max(0, this.storageLimit - this.food);
+  }
+
+  get hasHarvestSpace() {
+    return this.storageSpace > 0;
   }
 
   get aliveCount() {
@@ -75,9 +94,28 @@ export class Crops {
           plot.growth +
             (dt * boost) / Math.max(1, this.config.growSeconds ?? 18)
         );
-        if (plot.growth >= 1) plot.state = "ripe";
+        if (plot.growth >= 1) {
+          plot.state = "ripe";
+          plot.ripeAt = this.time;
+        }
+      }
+      // Dojrzałe zboże leży w polu tylko do czasu. Jeśli nikt go nie zbierze
+      // (np. spichlerze są pełne albo brakuje rąk), pole zarasta i znika.
+      // Gdy ktoś jest przypisany do żniw, czekamy, aż skończy pracę.
+      if (plot.state === "ripe" && plot.ripeAt == null) {
+        plot.ripeAt = this.time;
       }
       this._updateRot(plot, dt);
+      if (!this.plots.includes(plot)) continue;
+      if (
+        plot.state === "ripe" &&
+        plot.workerId == null &&
+        plot.ripeAt != null &&
+        this.time - plot.ripeAt >= (this.config.overripeSeconds ?? 120)
+      ) {
+        this._dropPlot(plot, "overripe");
+        continue;
+      }
       if (plot.soilMoisture > 0) {
         plot.soilMoisture = Math.max(
           0,
@@ -373,6 +411,27 @@ export class Crops {
         gravity: 160,
       });
       this._toast("Ulewa wypłukuje plony z pola.", "rain");
+    } else if (cause === "overripe") {
+      this.stats.overripe++;
+      this.game.effects.decals.push({
+        x: plot.x,
+        y: plot.y,
+        w: plot.w * 1.08,
+        h: ts * 0.42,
+        rotation: rand(-0.24, 0.24),
+        life: 20,
+        maxLife: 20,
+        type: "straw",
+      });
+      this.game.effects.burst(plot.x, plot.y - 3, "#c9a45f", 16, {
+        speed: 30,
+        life: 1.2,
+        size: 1.8,
+        gravity: 80,
+        spread: TAU,
+        type: "leaf",
+      });
+      this._toast("Nikt nie zebrał dojrzałego zboża. Pole zarosło.", "rain");
     } else {
       this.stats.rotted++;
       this.game.effects.decals.push({
@@ -409,7 +468,7 @@ export class Crops {
     if (!this.enabled || !person.alive) return false;
     if (person.ageYears < (this.config.minAge ?? 12)) return false;
     if (person.isNight) return false;
-    if (person.cropWork || person.homeBuild || person.ladderBuild) return false;
+    if (person.cropWork || person.homeBuild || person.granaryBuild || person.ladderBuild) return false;
     if (!ignoreWorkerCap && this._workerCount() >= this.maxWorkers) {
       return false;
     }
@@ -482,6 +541,7 @@ export class Crops {
       plot.growth = 0;
       plot.rot = 0;
       plot.wet = false;
+      plot.ripeAt = null;
       plot.sownAt = this.time;
       this.game.effects.burst(plot.x, plot.y - 2, "#8a6a43", 9, {
         speed: 18,
@@ -490,13 +550,23 @@ export class Crops {
         gravity: 120,
       });
     } else if (work.action === "harvest" && plot.state === "ripe") {
-      const amount = this.config.yieldPerHarvest ?? 8;
-      this.food = Math.min(this.foodMax, this.food + amount);
+      // Brak miejsca: nie zbieramy ponad pojemność spichlerzy. Pole zostaje
+      // dojrzałe, a robotnik wraca do bezczynności.
+      if (!this.hasHarvestSpace) {
+        this._releaseWorker(plot);
+        return false;
+      }
+      const amount = Math.min(
+        this.config.yieldPerHarvest ?? 8,
+        this.storageSpace
+      );
+      this.food = Math.min(this.storageLimit, this.food + amount);
       this.stats.harvests++;
       plot.state = "empty";
       plot.growth = 0;
       plot.rot = 0;
       plot.wet = false;
+      plot.ripeAt = null;
       this.game.effects.burst(plot.x, plot.y - 8, "#e2c063", 14, {
         speed: 26,
         life: 0.8,
@@ -585,6 +655,9 @@ export class Crops {
     for (const plot of this.plots) {
       if (plot.burning || plot.workerId != null) continue;
       if (!states.includes(plot.state)) continue;
+      // Pełne spichlerze wstrzymują żniwa: dojrzałe zboże czeka w polu,
+      // aż powstanie miejsce na kolejny zbiór.
+      if (plot.state === "ripe" && !this.hasHarvestSpace) continue;
       const priority = plot.state === "ripe" ? 0 : 1;
       const score =
         priority * 100000 +
@@ -763,6 +836,7 @@ export class Crops {
       growth: 0,
       rot: 0,
       wet: false,
+      ripeAt: null,
       soilMoisture: 0,
       rainWet: 0,
       burning: false,

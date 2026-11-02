@@ -182,7 +182,8 @@ Najważniejsze sekcje:
   pracę oraz od jakiego wieku i po jakim czasie ponowić próbę.
 - `crops` — pola uprawne i głód: ilu mieszkańców przypada na jedno pole, ile pól
   może istnieć, jak szybko rośnie zboże, ile trwa siew i żniwa, ile ziarna daje
-  jeden zbiór, jak często wioska zakłada nowe pola, jak szybko ludzie głodnieją
+  jeden zbiór, jak często wioska zakłada nowe pola, po jakim czasie nie zebrane
+  dojrzałe zboże przepada wraz z polem, jak szybko ludzie głodnieją
   i jedzą, przy jak niskich zapasach rzucają inne zajęcia, by ratować plony,
   oraz po jakim czasie głodu umierają. Tutaj też ustawia się tempo gnicia upraw
   w wodzie i czas wypalania pola przez ogień.
@@ -216,6 +217,9 @@ Zmiany w JSON są widoczne po odświeżeniu strony.
 Mapa to tablica `rows`; każdy znak to jeden kafelek, a wiersze idą z góry na dół.
 Puste miejsce (`" "`) to niebo. Grunt rysuje się na podstawie pierwszego
 solidnego kafelka w kolumnie.
+
+Startowa mapa ma **520 × 64** kafelki terenu (plus 40 wierszy podziemia
+doliczanych automatycznie w `WorldMap`).
 
 Domyślne znaki:
 
@@ -324,10 +328,23 @@ edytować `maps/world.json` — to zwykły, czytelny plik JSON.
   gorsze dni, a każdy głodny mieszkaniec zjada porcję ze spichlerza. Gdy ogień
   (piorun albo pożar lasu) wypala pole, a woda zalewa i gnije uprawy, pola
   znikają, ale skrawek ziemi pozostaje — wioska obsiewa go od nowa, więc
-  jedna wichura nie odbiera jej pól na zawsze. Gdy zapasy spadną poniżej progu
+  jedna wichura nie odbiera jej pól na zawsze. Dojrzałe zboże, którego nikt
+  nie zbierze przez dłuższy czas (np. gdy spichlerze są pełne albo brakuje
+  rąk do pracy), przepada razem z polem — ziemia zarasta i wioska musi
+  przygotować nowe poletko. Gdy zapasy spadną poniżej progu
   `urgentFood`, wszystkie wolne ręce idą ratować dojrzałe zboże, nawet ponad
   zwykły limit pracowników. Jeśli zapasy mimo to się wyczerpią, ludzie
   głodnieją, a po dłuższym czasie bez jedzenia zaczynają umierać z głodu.
+- **Spichlerze**: gdy ziarna zrobi się o 30% więcej niż na starcie, wieś
+  potrzebuje pierwszego spichlerza. To drewniany, bezokienny budynek z samymi
+  drzwiami, nieco większy od chaty i kryty podobną słomą. Stawia go zwykły
+  dorosły: ścina drzewa, a potem buduje na równym skrawku ziemi. Każdy spichlerz
+  ma ograniczoną pojemność; gdy ziarno się w nim nie mieści, pojawia się sygnał
+  do budowy kolejnego. Do tego czasu żniwa czekają — zbiory nie przekraczają
+  pojemności spichlerzy, a bez żadnego spichlerza obowiązuje tylko norma
+  początkowa (ziarno ze startu plus 30%). Przed spichlerzem stoją snopki: jeden
+  przy zapełnieniu do połowy, dwa gdy ziarna jest więcej. Piorun, ulewa, powódź
+  i huragan mogą spichlerz zniszczyć, a ziarno, które było w środku, przepada.
 - **Miejsca pamięci**: gdy w krótkim czasie w jednym miejscu ginie kilka osób,
   ocalali czekają, aż opadnie panika (i wstanie dzień). Wtedy schodzą się przy
   miejscu tragedii, stoją tam chwilę w milczeniu i usypują mały kopiec z
@@ -390,7 +407,7 @@ Miejsca, w których najłatwiej dodać kolejne funkcje:
 - susza, trzęsienia ziemi, zaraza;
 - rozbudowa ognia: wiatr, dym, ucieczka ludzi przed pożarem;
 - ofiary, kapliczki, kapłani;
-- rozbudowa wsi: studnie, płoty, warsztaty, spichlerze i młyny;
+- rozbudowa wsi: studnie, płoty, warsztaty i młyny;
 - drapieżniki, zwierzęta hodowlane;
 - zmienne pory roku i wpływ pogody na plony;
 - tryb „dobry bóg” z błogosławieństwami i uzdrowieniami;

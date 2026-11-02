@@ -1,4 +1,4 @@
-import { clamp, rand, chance, distance, ageGroup, mixColor, choice } from "./utils.js?v=20261046-1";
+import { clamp, rand, chance, distance, ageGroup, mixColor, choice } from "./utils.js?v=20261046-5";
 
 const STATE_LABELS = {
   idle: "odpoczywa",
@@ -68,6 +68,7 @@ export class Person {
 
     this.homeId = opts.homeId ?? null;
     this.homeBuild = null;
+    this.granaryBuild = null;
     this.buildCooldown = rand(0, 7);
     this.sleepIndoors = false;
     this.partnerId = null;
@@ -171,6 +172,8 @@ export class Person {
 
   get displayState() {
     if (this.state === "drown") return STATE_LABELS.drown;
+    if (this.state === "build" && this.granaryBuild) return "buduje spichlerz";
+    if (this.state === "chop" && this.granaryBuild) return "ścina drzewo na spichlerz";
     if (this.state === "pray") {
       return this.targetX != null ? "idzie do monolitu" : STATE_LABELS.pray;
     }
@@ -277,6 +280,7 @@ export class Person {
     if (
       !this.ladderBuild &&
       !this.homeBuild &&
+      !this.granaryBuild &&
       this.blockedTimer > 0.2 &&
       this.state !== "shame"
     ) {
@@ -385,6 +389,7 @@ export class Person {
     if (this.panicTimer > 0 && this.state !== "social") {
       if (this.memorialSiteId != null) this._leaveMemorial();
       if (this.homeBuild) game.housing?.cancelProject(this);
+      if (this.granaryBuild) game.granaries?.cancelProject(this);
       if (this.ladderBuild) game.ladders?.cancelProject(this);
       if (this.cropWork) game.crops?.cancelProject(this);
       if (this.monolithSiteId != null) game.monoliths?.release(this);
@@ -420,6 +425,11 @@ export class Person {
 
     if (this.state === "mourn") {
       this._mourn(dt, game, waterInfo);
+      return;
+    }
+
+    if (this.granaryBuild && (this.state === "chop" || this.state === "build")) {
+      this._workOnGranary(dt, game, waterInfo);
       return;
     }
 
@@ -538,7 +548,11 @@ export class Person {
           // Najpierw dokończ przerwaną budowę, potem myśl o nowej chacie.
           if (this.ladderBuild && game.ladders?.resume(this)) return;
           if (this.homeBuild && game.housing?.resumeProject(this)) return;
+          if (this.granaryBuild && game.granaries?.resumeProject(this)) return;
           if (!night && this.cropWork && game.crops?.resume(this)) return;
+          // Spichlerz jest wspólną potrzebą wsi, więc gdy brakuje miejsca
+          // na ziarno, ktoś idzie po drewno, zanim zajmie się własną chatą.
+          if (game.granaries?.tryStartProject(this)) return;
           if (!this.homeId && game.housing?.tryStartProject(this)) return;
           if (!night && game.crops?.tryStartWork(this)) return;
         }
@@ -614,6 +628,7 @@ export class Person {
     this.panicTimer = 0;
     if (this.memorialSiteId != null) this._leaveMemorial();
     if (this.homeBuild) game.housing?.cancelProject(this);
+    if (this.granaryBuild) game.granaries?.cancelProject(this);
     if (this.ladderBuild) game.ladders?.cancelProject(this);
     if (this.cropWork) game.crops?.cancelProject(this);
     this.state = "shame";
@@ -971,6 +986,126 @@ export class Person {
     this._walkTowardsTarget(dt, game, waterInfo);
   }
 
+  /** Ścinanie drzew i stawianie spichlerza — tak samo jak przy chacie. */
+  _workOnGranary(dt, game, waterInfo) {
+    const granaries = game.granaries;
+    const project = this.granaryBuild;
+    if (!granaries || !project) {
+      this.granaryBuild = null;
+      this.state = "idle";
+      this.stateTimer = this._idleDuration();
+      return;
+    }
+
+    if (this.isNight) {
+      this.state = "idle";
+      this.stateTimer = this._idleDuration(true);
+      this.targetX = null;
+      this.moveDir = 0;
+      this._chopTimer = 0;
+      return;
+    }
+
+    const ts = this.map.tileSize;
+
+    if (project.siteId != null) {
+      const site = granaries.getSite(project.siteId);
+      if (!site) {
+        project.siteId = null;
+        if (!granaries.resumeProject(this)) {
+          this.state = "idle";
+          this.stateTimer = this._idleDuration();
+        }
+        return;
+      }
+
+      this.state = "build";
+      this.targetX = site.x;
+      const dx = Math.abs(this.x - site.x);
+      const dy = Math.abs(this.y - site.y);
+      if (dx < ts * 0.75 && dy < ts * 2.5) {
+        this.moveDir = 0;
+        this.vx *= 0.85;
+        this.facing = site.x >= this.x ? 1 : -1;
+        site.progress = Math.min(1, site.progress + dt / granaries.buildSeconds);
+        if (chance(dt * 7)) {
+          const px = site.x + rand(-site.w * 0.42, site.w * 0.42);
+          const py = site.y - rand(1, site.wallH * 0.8);
+          game.effects.burst(px, py, chance(0.5) ? "#c9a46b" : "#8a6a43", 2, {
+            speed: 20,
+            life: 0.55,
+            size: 1.6,
+            gravity: 120,
+          });
+        }
+        if (site.progress >= 1) granaries.completeSite(site, this);
+      } else {
+        this._walkTowardsTarget(dt, game, waterInfo);
+      }
+      return;
+    }
+
+    if (project.treeId == null) {
+      if (!granaries.assignTree(this, project)) {
+        granaries.cancelProject(this);
+      }
+      return;
+    }
+
+    const tree = game.vegetation.getTree(project.treeId);
+    if (!tree || tree.felled || tree.stump || tree.burning) {
+      project.treeId = null;
+      this._chopTimer = 0;
+      if (!granaries.assignTree(this, project)) {
+        granaries.cancelProject(this);
+      }
+      return;
+    }
+
+    this.state = "chop";
+    this.targetX = tree.x;
+    if (Math.abs(this.x - tree.x) < ts * 0.75) {
+      this.moveDir = 0;
+      this.vx *= 0.85;
+      this.facing = tree.x >= this.x ? 1 : -1;
+      this._chopTimer += dt;
+      if (chance(dt * 6)) {
+        game.effects.burst(
+          tree.x + rand(-3, 3),
+          tree.y - rand(2, Math.max(4, tree.h * 0.35)),
+          chance(0.5) ? "#c9a46b" : "#7a5a37",
+          2,
+          { speed: 22, life: 0.55, size: 1.7, gravity: 130 }
+        );
+      }
+      if (this._chopTimer >= granaries.chopSeconds) {
+        if (game.vegetation.fellTree(tree, this.facing)) {
+          project.wood += granaries.woodPerTree;
+          game.effects.burst(tree.x, tree.y - tree.h * 0.4, "#8fbf62", 12, {
+            speed: 34,
+            life: 0.9,
+            size: 1.9,
+            gravity: 60,
+          });
+        }
+        project.treeId = null;
+        this._chopTimer = 0;
+        if (project.wood >= granaries.woodRequired) {
+          if (!granaries.beginSite(this)) {
+            this.state = "idle";
+            this.stateTimer = this._idleDuration();
+            this.targetX = null;
+          }
+        } else if (!granaries.assignTree(this, project)) {
+          granaries.cancelProject(this);
+        }
+      }
+      return;
+    }
+
+    this._walkTowardsTarget(dt, game, waterInfo);
+  }
+
   /**
    * Praca w polu: zasiew lub żniwa. Noc przerywa pracę, ale pole zostaje
    * przydzielone, więc rano człowiek wraca do przerwanego zajęcia.
@@ -1218,6 +1353,7 @@ export class Person {
       this._trapCooldown > 0 ||
       this.ladderBuild ||
       this.homeBuild ||
+      this.granaryBuild ||
       this._climb
     ) {
       return;
@@ -1389,6 +1525,39 @@ export class Person {
     else this.memorialSiteId = null;
   }
 
+  /**
+   * Wilk w pobliżu: człowiek porzuca zajęcie i ucieka w przeciwną stronę.
+   * Osoba śpiąca w domu jest bezpieczna i nie reaguje na watahę.
+   */
+  fleeFromWolf(threatX) {
+    if (!this.alive || this.sleepIndoors || this.state === "drown") return false;
+
+    const cfg = this.population.game?.config?.wolves || {};
+    const ts = this.map.tileSize;
+
+    // Nowy cel wybieramy tylko wtedy, gdy nie uciekamy już przed wilkiem.
+    // Dzięki temu _flee może spokojnie wybrać bezpieczniejszy grunt, zamiast
+    // co klatkę odwracać się w stronę tego samego prześladowcy.
+    if (this.state !== "flee") {
+      const dir = Math.sign(this.x - threatX) || (chance(0.5) ? 1 : -1);
+      this.targetX = clamp(
+        this.x + dir * ts * (cfg.fleeDistanceTiles ?? 10),
+        ts * 2,
+        this.map.pixelWidth - ts * 2
+      );
+      this.partnerTarget = null;
+      this.state = "flee";
+      this.moveDir = dir;
+      this.facing = dir;
+    }
+
+    this.panicTimer = Math.max(
+      this.panicTimer,
+      rand(cfg.fearSecondsMin ?? 4.5, cfg.fearSecondsMax ?? 7)
+    );
+    return true;
+  }
+
   _flee(game, waterInfo, wadeDepth) {
     this.state = "flee";
     this.stateTimer -= 1 / 60;
@@ -1462,7 +1631,8 @@ export class Person {
         this.state = "idle";
         this.stateTimer = rand(1, 2.5);
       } else if (this.state === "chop" || this.state === "build") {
-        game?.housing?.cancelProject(this);
+        if (this.granaryBuild) game?.granaries?.cancelProject(this);
+        else game?.housing?.cancelProject(this);
         this.state = "idle";
         this.stateTimer = rand(1, 2.5);
       } else if (this.state === "ladderChop" || this.state === "ladderBuild") {
